@@ -1,0 +1,19 @@
+name: lmt-dev
+services:
+  db:
+    image: postgres:17.11
+    environment:
+      POSTGRES_DB: lmt
+      POSTGRES_USER: lmt_migrate
+      POSTGRES_PASSWORD: lmt_local_migration
+    ports: ["127.0.0.1:54329:5432"]
+    volumes:
+      - lmt_db:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/01-runtime.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lmt_migrate -d lmt"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  lmt_db:

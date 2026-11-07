@@ -1,0 +1,25 @@
+import {test,expect,type Page} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import {readFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import {randomInt,randomUUID} from 'node:crypto';
+import Ajv2020 from 'ajv/dist/2020';
+import addFormats from 'ajv-formats';
+import contract from '../../contracts/openapi/lmt-v1.json';
+const ajv=new Ajv2020({strict:false});addFormats(ajv);
+function schema(name:string,value:unknown){const check=ajv.compile({$ref:`#/components/schemas/${name}`,components:contract.components});expect(check(value),JSON.stringify(check.errors)).toBeTruthy();}
+async function signIn(page:Page){await page.goto('/login');await page.getByLabel('Full name',{exact:true}).fill('Operations Browser Test');await page.getByLabel('Mobile number',{exact:true}).fill('+919'+randomInt(100000000,999999999));await page.getByRole('button',{name:'Request verification code'}).click();await expect(page).toHaveURL(/verify-otp/);const id=new URL(page.url()).searchParams.get('challenge');let code='';await expect.poll(async()=>{try{code=await readFile('../.local/otp-inbox/'+id+'.txt','utf8');return code.length;}catch{return 0;}}).toBe(6);await page.getByLabel('Six-digit verification code').fill(code);await page.getByRole('button',{name:'Verify and continue'}).click();await expect(page.getByRole('heading',{name:'Your workspaces',exact:true})).toBeVisible();}
+test('operation status and exact recovery confirmation use durable backend state',async({page},testInfo)=>{
+ await signIn(page);const plan=await(await page.request.get('/api/v1/public/plans/FREE')).json();const csrf=await(await page.request.get('/api/v1/auth/csrf')).json();
+ const created=await page.request.post('/api/v1/workspaces',{data:{profile:{name:'Operation recovery E2E',customerType:'individual',city:'Pune',state:'Maharashtra'},selectedPlanVersionId:plan.versionId,consentIds:['sandbox-use-v1']},headers:{Origin:'http://127.0.0.1:3000','X-CSRF-Token':csrf.token,'Idempotency-Key':randomUUID()}});expect(created.status()).toBe(201);const w=(await created.json()).id;
+ await page.goto('/workspace/operations?workspace='+w);await expect(page.getByRole('heading',{name:'Operation recovery E2E',exact:true})).toBeVisible();await expect(page.getByText('delivered',{exact:true})).toBeVisible({timeout:15000});
+ const listed=await(await page.request.get('/api/v1/workspaces/'+w+'/operations')).json();schema('WorkspaceOperations',listed);const id=listed.items[0].id;expect(id).toMatch(/^[0-9a-f-]{36}$/);
+ await page.getByRole('button',{name:'View attempts'}).click();await expect(page.getByRole('heading',{name:'Recent attempt history'})).toBeVisible();schema('WorkspaceOperationDetail',await(await page.request.get('/api/v1/operations/'+id)).json());
+ // Test-only failed-job fixture. Actual repeated DB delivery failures and lease crashes are exercised in OperationsIntegrationTest.
+ execFileSync('docker',['compose','-f','../compose.yaml','exec','-T','db','psql','-U','lmt_migrate','-d','lmt','-v','ON_ERROR_STOP=1','-c',`UPDATE workspace_outbox SET status='failed',cycle_attempts=5,last_code='RETRY_EXHAUSTED',version=version+1,lease_token=NULL,lease_until=NULL WHERE event_id='${id}'`],{stdio:'pipe'});
+ await page.getByRole('button',{name:'Refresh operations'}).click();await expect(page.getByText('failed',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Review retry',exact:true}).click();await page.getByRole('button',{name:'Review confirmation'}).click();await expect(page.getByText('Explain the recovery reason in at least 10 characters.',{exact:true})).toBeVisible();await page.getByLabel('Recovery reason',{exact:true}).fill('Dependency reviewed after test failure');await page.getByRole('button',{name:'Review confirmation'}).click();await expect(page.getByRole('button',{name:'Confirm recovery action'})).toBeFocused();
+ let lost=false;await page.route('**/api/v1/operations/'+id+'/retry-failed',async route=>{if(!lost){lost=true;const response=await route.fetch();expect(response.status()).toBe(202);schema('WorkspaceOperation',await response.json());await route.abort('failed');}else await route.continue();});
+ await page.getByRole('button',{name:'Confirm recovery action'}).press('Enter');await expect(page.getByRole('button',{name:'Retry same recovery'})).toBeVisible();await page.getByRole('button',{name:'Retry same recovery'}).click();await expect(page.getByText('Retry request recorded. The current operation status below confirms whether delivery has completed.',{exact:true})).toBeVisible();await expect(page.getByText('delivered',{exact:true})).toBeVisible({timeout:15000});
+ const setup=await(await page.request.get('/api/v1/workspaces/'+w+'/setup')).json();expect(setup.notifications).toHaveLength(1);
+ expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();await page.screenshot({path:testInfo.outputPath('operations.png'),fullPage:true});
+});

@@ -1,0 +1,11 @@
+**/target/
+**/node_modules/
+**/.next/
+**/test-results/
+**/playwright-report/
+.env
+*.log
+.DS_Store
+**/*.tsbuildinfo
+
+.local/
