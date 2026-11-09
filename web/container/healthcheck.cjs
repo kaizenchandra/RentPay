@@ -1,0 +1,1 @@
+const http=require('node:http');const q=http.get('http://127.0.0.1:3000/login',r=>{r.resume();process.exit(r.statusCode===200?0:1)});q.setTimeout(3000,()=>{q.destroy();process.exit(1)});q.on('error',()=>process.exit(1));

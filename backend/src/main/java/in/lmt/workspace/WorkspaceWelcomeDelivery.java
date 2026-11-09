@@ -1,6 +1,7 @@
 package in.lmt.workspace;
 import org.springframework.stereotype.Component;
 import org.springframework.scheduling.annotation.Scheduled;
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="lmt.jobs.enabled",havingValue="true",matchIfMissing=true)
 @Component
 public class WorkspaceWelcomeDelivery {
  private final WelcomeOperations operations;

@@ -10,9 +10,9 @@ export function ErrorSummary({error}:{error:Error|null}) {
  const ref=useRef<HTMLDivElement>(null);
  useEffect(()=>{if(error)ref.current?.focus();},[error]);
  if(!error)return null;
- return <div className="form-error" role="alert" tabIndex={-1} ref={ref}><strong>We couldn’t complete that step.</strong><p>{error.message}</p>{error instanceof ApiError && (error.status===401||error.problem.code==='REAUTHENTICATION_REQUIRED')?<a href="/login">Sign in again</a>:null}{error instanceof ApiError && error.problem.fieldErrors?.map(f=><p key={f.field}><a href={`#${f.field.replace(/^profile\./,'').replace('consentIds','acknowledged')}`}>{f.message}</a></p>)}</div>;
+ return <div className="form-error" role="alert" tabIndex={-1} ref={ref}><strong>We couldn’t complete that step.</strong><p>{error.message}</p>{error instanceof ApiError && (error.status===401||error.problem.code==='REAUTHENTICATION_REQUIRED')?<a href={error.status===401?'/login':'/account/reauthenticate'}>{error.status===401?'Sign in again':'Verify your current session'}</a>:null}{error instanceof ApiError && error.problem.fieldErrors?.map(f=><p key={f.field}><a href={`#${f.field.replace(/^profile\./,'').replace('consentIds','acknowledged')}`}>{f.message}</a></p>)}</div>;
 }
-export function SandboxNotice() {return <aside className="notice"><strong>Local sandbox</strong><p>No SMS is sent. Codes go to the private test inbox on this computer. Use test details only; no payment is collected.</p></aside>;}
+export function SandboxNotice() {return <aside className="notice"><strong>Local sandbox</strong><p>No SMS or email is sent. Codes go to the private test inbox on this computer. Use test details only; no payment is collected.</p></aside>;}
 export function Logout() {
  const [error,setError]=useState<Error|null>(null);const [busy,setBusy]=useState(false);
  return <><button className="secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await api('/auth/logout',{method:'POST'});announceLogout();window.location.replace('/login');}catch(e){if(e instanceof ApiError&&e.status===401){announceLogout();window.location.replace('/login');}else{setError(e as Error);setBusy(false);}}}}>Sign out</button><ErrorSummary error={error}/></>;

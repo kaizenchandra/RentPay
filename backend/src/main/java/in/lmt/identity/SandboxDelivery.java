@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="lmt.jobs.enabled",havingValue="true",matchIfMissing=true)
 @Component
 public class SandboxDelivery {
  private final JdbcClient db;private final IdentityConfig config;private final ChallengeService challenges;

@@ -35,8 +35,27 @@ public class AccountController {
             @RequestHeader(value="If-Match",required=false) String expected,@RequestHeader("Idempotency-Key") UUID key) {
         return controls.revoke(UUID.fromString(auth.getName()),request.getSession().getId(),id,key,expected);
     }
-    @GetMapping("/security-notifications")
+    @GetMapping({"/security-notifications","/notifications"})
     public AccountControls.Notices notifications(Authentication auth,@RequestParam(required=false) String cursor) {
         return controls.notices(UUID.fromString(auth.getName()),cursor);
     }
+    @PostMapping("/notifications/{id}/read")
+    public ResponseEntity<AccountControls.Notice> readNotification(Authentication auth,@PathVariable UUID id,
+            @RequestHeader(value="If-Match",required=false) String expected,@RequestHeader("Idempotency-Key") UUID key) {
+        var result=controls.readNotice(UUID.fromString(auth.getName()),id,key,expected);
+        return ResponseEntity.ok().eTag(result.etag()).body(result);
+    }
+
+    public record SelectSessions(@NotNull @Size(min=1,max=25) java.util.List<@NotNull UUID> sessionIds) {}
+    @PostMapping("/session-revocation-preview")
+    public ResponseEntity<AccountControls.RevocationPreview> previewRevocations(Authentication auth,HttpServletRequest request,@Valid @RequestBody SelectSessions body){
+        var result=controls.previewRevocations(UUID.fromString(auth.getName()),request.getSession().getId(),body.sessionIds());
+        return ResponseEntity.ok().eTag(result.etag()).body(result);
+    }
+    @PostMapping("/session-revocations")
+    public AccountControls.BatchRevoked revokeSelected(Authentication auth,HttpServletRequest request,@Valid @RequestBody SelectSessions body,
+            @RequestHeader(value="If-Match",required=false) String expected,@RequestHeader("Idempotency-Key") UUID key){
+        return controls.revokeSelected(UUID.fromString(auth.getName()),request.getSession().getId(),body.sessionIds(),key,expected);
+    }
+
 }

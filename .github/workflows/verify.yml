@@ -43,3 +43,21 @@ jobs:
         working-directory: web
       - if: always()
         run: docker compose stop
+
+  compose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: ./scripts/compose-local.sh config --quiet
+      - run: ./scripts/compose-local.sh build
+      - run: ./scripts/compose-local.sh up -d --wait --wait-timeout 180
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: web
+      - run: node web/tests/compose-smoke.mjs
+      - if: failure()
+        run: ./scripts/compose-local.sh logs --tail=150
+      - if: always()
+        run: ./scripts/compose-local.sh stop

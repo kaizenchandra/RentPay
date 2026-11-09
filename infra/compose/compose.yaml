@@ -1,0 +1,129 @@
+name: lmt-stack
+x-core: &core
+  image: lmt-core:local
+  build:
+    context: ../..
+    dockerfile: backend/Dockerfile
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 768m
+  networks: [private]
+  environment: &runtime
+    DB_URL: jdbc:postgresql://db:5432/lmt
+    DB_USER: lmt_runtime
+    LMT_DB_PASSWORD_FILE: /run/secrets/runtime_password
+    LMT_SESSION_KEY_FILE: /run/secrets/session_key
+    SPRING_PROFILES_ACTIVE: local
+    LMT_CONTAINER_SANDBOX: 'true'
+    LMT_SANDBOX_INBOX: /data/otp-inbox
+    LMT_SECURITY_ALLOWED_ORIGINS: http://localhost:3100,http://127.0.0.1:3100
+  secrets: [runtime_password, session_key]
+  volumes: [private_files:/data]
+  depends_on:
+    db: {condition: service_healthy}
+    migrate: {condition: service_completed_successfully}
+services:
+  db:
+    image: postgres:17.11@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lmt
+      POSTGRES_USER: lmt_bootstrap
+      POSTGRES_PASSWORD_FILE: /run/secrets/bootstrap_password
+    secrets: [bootstrap_password, migration_password, runtime_password]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    networks: [private]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U lmt_bootstrap -d lmt']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  migrate:
+    image: lmt-core:local
+    build: {context: ../.., dockerfile: backend/Dockerfile}
+    command: [migrate]
+    restart: 'no'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/lmt
+      DB_USER: lmt_migrate
+      LMT_DB_PASSWORD_FILE: /run/secrets/migration_password
+    secrets: [migration_password]
+    networks: [private]
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    <<: *core
+    command: [api]
+    healthcheck:
+      test: [CMD, java, -cp, /app/health, HealthCheck, api]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+  worker:
+    <<: *core
+    command: [worker]
+    healthcheck:
+      test: [CMD, java, -cp, /app/health, HealthCheck, worker]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+  web:
+    image: lmt-web:local
+    build: {context: ../.., dockerfile: web/Dockerfile}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp, '/app/.next/cache:uid=1000,gid=1000']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    networks: [private]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, /app/healthcheck.cjs]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  edge:
+    image: nginx:1.28.2-alpine@sha256:5b4900b042ccfa8b0a73df622c3a60f2322faeb2be800cbee5aa7b44d241649e
+    entrypoint: [nginx, -g, 'daemon off;']
+    user: '101:101'
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ['127.0.0.1:3100:8080']
+    volumes: ['./nginx.conf:/etc/nginx/nginx.conf:ro']
+    networks: [private, ingress]
+    depends_on:
+      web: {condition: service_healthy}
+      worker: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/healthz]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+networks:
+  ingress: {}
+  private:
+    internal: true
+volumes:
+  postgres_data:
+  private_files:
+secrets:
+  bootstrap_password: {file: ../../.local/compose/bootstrap_password}
+  migration_password: {file: ../../.local/compose/migration_password}
+  runtime_password: {file: ../../.local/compose/runtime_password}
+  session_key: {file: ../../.local/compose/session_key}

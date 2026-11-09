@@ -12,4 +12,11 @@ class IdentityConfigurationTest {
   assertThatThrownBy(()->new IdentityConfig(env,"sandbox","x".repeat(32),"/tmp/test","http://localhost:3000","0.0.0.0")).isInstanceOf(IllegalStateException.class);
   assertThatThrownBy(()->new IdentityConfig(env,"unavailable","","","http://localhost:3000","127.0.0.1")).isInstanceOf(IllegalStateException.class);
  }
+ @Test void containerExceptionRequiresExplicitLocalProfileAndLoopbackOrigin(){
+  var env=new MockEnvironment().withProperty("lmt.container-sandbox","true");env.setActiveProfiles("local");
+  assertThatCode(()->new IdentityConfig(env,"sandbox","x".repeat(32),"/data/otp-inbox","http://localhost:3100","0.0.0.0")).doesNotThrowAnyException();
+  assertThatThrownBy(()->new IdentityConfig(env,"sandbox","x".repeat(32),"/data/otp-inbox","http://example.com","0.0.0.0")).isInstanceOf(IllegalStateException.class);
+  env.setActiveProfiles("production");
+  assertThatThrownBy(()->new IdentityConfig(env,"sandbox","x".repeat(32),"/data/otp-inbox","http://localhost:3100","0.0.0.0")).isInstanceOf(IllegalStateException.class);
+ }
 }

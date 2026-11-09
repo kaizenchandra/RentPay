@@ -24,13 +24,13 @@ public class AccountControls {
         this.reauthenticationSeconds = reauthenticationSeconds;
     }
 
-    public record Profile(UUID id, String displayName, String mode, String maskedMobile, int version, String etag) {}
+    public record Profile(UUID id, String displayName, String mode, String maskedMobile, String maskedEmail, int version, String etag) {}
     public record SessionView(UUID id, String clientLabel, Instant signedInAt, Instant lastActiveAt, boolean current, int version, String etag) {}
     public record Page(int limit, String nextCursor) {}
     public record Sessions(List<SessionView> items, Page page, int totalMatching, Instant asOf) {}
     public record Revoked(UUID id, String status) {}
-    public record Notice(UUID id, String message, Instant occurredAt) {}
-    public record Notices(List<Notice> items, Page page, int totalMatching, Instant asOf) {}
+    public record Notice(UUID id, String message, Instant occurredAt, Instant readAt, int version, String etag) {}
+    public record Notices(List<Notice> items, Page page, int totalMatching, int unreadCount, Instant asOf) {}
 
     private void scope(UUID actor) {
         db.sql("SELECT set_config('lmt.account_id',:id,true)").param("id", actor.toString()).query().singleRow();
@@ -62,11 +62,11 @@ public class AccountControls {
 
     @Transactional(readOnly=true)
     public Profile profile(UUID actor) {
-        return db.sql("SELECT id,display_name,identity_mode,mobile,version FROM user_account WHERE id=:a")
+        return db.sql("SELECT id,display_name,identity_mode,mobile,email,version FROM user_account WHERE id=:a")
             .param("a",actor).query((rs,n) -> {
                 String mobile = rs.getString("mobile"); int version = rs.getInt("version");
                 return new Profile(actor,rs.getString("display_name"),rs.getString("identity_mode"),
-                    "+91••••••" + mobile.substring(mobile.length()-4),version,etag("profile",actor,version));
+                    mobile==null?null:"+91••••••" + mobile.substring(mobile.length()-4),rs.getString("email")==null?null:ChallengeService.maskEmail(rs.getString("email")),version,etag("profile",actor,version));
             }).optional().orElseThrow(() -> new ApiProblem(401,"UNAUTHENTICATED","Sign in again."));
     }
 
@@ -86,7 +86,10 @@ public class AccountControls {
     }
 
     @Transactional
-    public void registerSession(UUID actor, String token, String userAgent) {
+    public void registerSession(UUID actor, String token, String userAgent, int expectedGeneration) {
+        db.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))").param("key","account-session-generation:"+actor).query().singleRow();
+        int generation=db.sql("SELECT auth_generation FROM user_account WHERE id=:a").param("a",actor).query(Integer.class).single();
+        if(generation!=expectedGeneration)throw new ApiProblem(409,"AUTHENTICATION_STALE","Account recovery changed this sign-in. Request a new code.");
         String hint = userAgent == null ? "" : userAgent;
         String browser = hint.contains("Edg/") ? "Edge" : hint.contains("Firefox/") ? "Firefox" : hint.contains("Chrome/") ? "Chrome" : hint.contains("Safari/") ? "Safari" : "Browser not identified";
         String platform = hint.contains("Android") ? "Android" : hint.contains("iPhone") || hint.contains("iPad") ? "iOS" : hint.contains("Windows") ? "Windows" : hint.contains("Mac") ? "macOS" : hint.contains("Linux") ? "Linux" : "platform unknown";
@@ -166,10 +169,73 @@ public class AccountControls {
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Notices notices(UUID actor, String cursor) {
         scope(actor);
-        var rows = db.sql("SELECT id,message,occurred_at FROM account_notification WHERE account_id=:a AND id>:after ORDER BY id LIMIT 26")
-            .param("a",actor).param("after",cursor(actor,cursor)).query((rs,n)->new Notice(rs.getObject(1,UUID.class),rs.getString(2),rs.getTimestamp(3).toInstant())).list();
+        var rows = db.sql("SELECT id,message,occurred_at,read_at,version FROM account_notification WHERE account_id=:a AND id>:after ORDER BY id LIMIT 26")
+            .param("a",actor).param("after",cursor(actor,cursor)).query((rs,n)->new Notice(rs.getObject(1,UUID.class),rs.getString(2),rs.getTimestamp(3).toInstant(),rs.getTimestamp(4)==null?null:rs.getTimestamp(4).toInstant(),rs.getInt(5),etag("notice",rs.getObject(1,UUID.class),rs.getInt(5)))).list();
         boolean more=rows.size()>25;var items=more?rows.subList(0,25):rows;
         int total=db.sql("SELECT count(*) FROM account_notification WHERE account_id=:a").param("a",actor).query(Integer.class).single();
-        return new Notices(items,new Page(25,more?next(actor,items.getLast().id()):null),total,Instant.now());
+        int unread=db.sql("SELECT count(*) FROM account_notification WHERE account_id=:a AND read_at IS NULL").param("a",actor).query(Integer.class).single();
+        return new Notices(items,new Page(25,more?next(actor,items.getLast().id()):null),total,unread,Instant.now());
     }
+    @Transactional
+    public Notice readNotice(UUID actor, UUID id, UUID key, String expected) {
+        precondition(expected);
+        String operation="identity.notification_read", hash=ChallengeService.hash(id+":"+expected);
+        var prior=replay(actor,operation,key,hash);
+        if(prior.isPresent())return json.readValue(prior.get(),Notice.class);
+        var row=db.sql("SELECT * FROM account_notification WHERE id=:id AND account_id=:a FOR UPDATE")
+            .param("id",id).param("a",actor).query().listOfRows().stream().findFirst()
+            .orElseThrow(()->new ApiProblem(404,"NOTIFICATION_NOT_FOUND","Notification is unavailable."));
+        int version=((Number)row.get("version")).intValue();
+        match(expected,etag("notice",id,version));
+        if(row.get("read_at")==null){
+            db.sql("UPDATE account_notification SET read_at=clock_timestamp(),version=version+1 WHERE id=:id AND account_id=:a")
+                .param("id",id).param("a",actor).update();
+            audit.record(actor,null,operation,id);
+        }
+        Notice result=db.sql("SELECT id,message,occurred_at,read_at,version FROM account_notification WHERE id=:id AND account_id=:a")
+            .param("id",id).param("a",actor).query((rs,n)->new Notice(id,rs.getString(2),rs.getTimestamp(3).toInstant(),rs.getTimestamp(4).toInstant(),rs.getInt(5),etag("notice",id,rs.getInt(5)))).single();
+        db.sql("INSERT INTO identity_command(actor_id,operation,request_key,request_hash,result) VALUES(:a,:o,:k,:h,CAST(:r AS jsonb))")
+            .param("a",actor).param("o",operation).param("k",key).param("h",hash).param("r",json.writeValueAsString(result)).update();
+        return result;
+    }
+
+    public record SessionSelection(UUID id,String clientLabel,Instant authenticatedAt,int version) {}
+    public record RevocationPreview(List<SessionSelection> sessions,String etag) {}
+    public record BatchRevoked(List<UUID> sessionIds,int endedCount,String status) {}
+    private List<UUID> targets(List<UUID> ids){
+        if(ids==null||ids.isEmpty()||ids.size()>25||ids.stream().anyMatch(Objects::isNull)||new HashSet<>(ids).size()!=ids.size())
+            throw new ApiProblem(422,"INVALID_SELECTION","Select between one and 25 distinct other sessions.","sessionIds");
+        return ids.stream().sorted().toList();
+    }
+    private RevocationPreview selection(UUID actor,String token,List<UUID> ids,boolean lock){
+        String tokenHash=ChallengeService.hash(token);
+        var rows=db.sql("SELECT a.*,a.authenticated_at>clock_timestamp()-(:seconds * interval '1 second') AS recent,EXISTS(SELECT 1 FROM spring_session s WHERE s.principal_name=:principal AND a.token_hash=encode(sha256(convert_to(s.session_id,'UTF8')),'hex') AND s.last_access_time+s.max_inactive_interval::bigint*1000>extract(epoch FROM clock_timestamp())*1000) AS active FROM account_session a WHERE a.account_id=:a AND (a.id IN (:ids) OR a.token_hash=:h) ORDER BY a.id"+(lock?" FOR UPDATE OF a":""))
+            .param("seconds",reauthenticationSeconds).param("principal",actor.toString()).param("a",actor).param("ids",ids).param("h",tokenHash).query().listOfRows();
+        var current=rows.stream().filter(r->tokenHash.equals(r.get("token_hash"))).findFirst().orElseThrow(()->new ApiProblem(401,"UNAUTHENTICATED","Sign in again."));
+        if(current.get("revoked_at")!=null||!(Boolean)current.get("active"))throw new ApiProblem(401,"UNAUTHENTICATED","Sign in again.");
+        if(ids.contains(current.get("id")))throw new ApiProblem(409,"USE_SIGN_OUT","Use Sign out to end your current session.");
+        if(lock&&!(Boolean)current.get("recent"))throw new ApiProblem(403,"REAUTHENTICATION_REQUIRED","Verify your current session before ending other sessions.");
+        var selected=rows.stream().filter(r->ids.contains(r.get("id"))).toList();
+        if(selected.size()!=ids.size())throw new ApiProblem(404,"SESSION_NOT_FOUND","One or more selected sessions are unavailable.");
+        if(selected.stream().anyMatch(r->r.get("revoked_at")!=null||!(Boolean)r.get("active")))throw new ApiProblem(412,"VERSION_STALE","A selected session ended or expired. Refresh and review your selection.");
+        var result=selected.stream().map(r->new SessionSelection((UUID)r.get("id"),(String)r.get("client_label"),((java.sql.Timestamp)r.get("authenticated_at")).toInstant(),((Number)r.get("version")).intValue())).toList();
+        String versions=result.stream().map(r->r.id()+":"+r.version()).collect(java.util.stream.Collectors.joining(","));
+        return new RevocationPreview(result,"\"session-selection-"+ChallengeService.hash(actor+":"+tokenHash+":"+versions)+"\"");
+    }
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public RevocationPreview previewRevocations(UUID actor,String token,List<UUID> ids){return selection(actor,token,targets(ids),false);}
+    @Transactional
+    public BatchRevoked revokeSelected(UUID actor,String token,List<UUID> requested,UUID key,String expected){
+        precondition(expected);var ids=targets(requested);String operation="identity.sessions_revoked",hash=ChallengeService.hash(expected+":"+ids);
+        var prior=replay(actor,operation,key,hash);if(prior.isPresent())return json.readValue(prior.get(),BatchRevoked.class);
+        var preview=selection(actor,token,ids,true);match(expected,preview.etag());
+        db.sql("DELETE FROM spring_session s USING account_session a WHERE a.account_id=:a AND a.id IN (:ids) AND s.principal_name=:principal AND a.token_hash=encode(sha256(convert_to(s.session_id,'UTF8')),'hex')")
+            .param("a",actor).param("ids",ids).param("principal",actor.toString()).update();
+        db.sql("UPDATE account_session SET revoked_at=clock_timestamp(),version=version+1 WHERE account_id=:a AND id IN (:ids)").param("a",actor).param("ids",ids).update();
+        for(UUID id:ids)audit.record(actor,null,"identity.session_revoked",id);
+        var result=new BatchRevoked(ids,ids.size(),"revoked");
+        record(actor,operation,key,hash,result,actor,ids.size()+" selected browser sessions were signed out from account security.");
+        return result;
+    }
+
 }

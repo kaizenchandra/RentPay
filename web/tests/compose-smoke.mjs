@@ -1,0 +1,52 @@
+// Explicit local sandbox smoke test. Run after scripts/compose-local.sh up -d --wait.
+import {chromium, expect} from '@playwright/test';
+import {execFileSync} from 'node:child_process';
+import {randomInt} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+const wrapper=fileURLToPath(new URL('../../scripts/compose-local.sh',import.meta.url));
+const compose=(...args)=>execFileSync(wrapper,args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+const browser=await chromium.launch();
+try {
+ const context=await browser.newContext({baseURL:'http://127.0.0.1:3100'});
+ const page=await context.newPage();
+ await page.goto('/login');
+ await page.getByLabel('Full name',{exact:true}).fill('Compose Sandbox Owner');
+ await page.getByLabel('Mobile number',{exact:true}).fill('+919'+randomInt(100000000,999999999));
+ await page.getByRole('button',{name:'Request verification code'}).click();
+ await expect(page).toHaveURL(/verify-otp/);
+ const id=new URL(page.url()).searchParams.get('challenge');
+ if(!/^[0-9a-f-]{36}$/.test(id))throw Error('Invalid challenge reference');
+ let code='';
+ await expect.poll(()=>{try {code=compose('exec','-T','worker','cat','/data/otp-inbox/'+id+'.txt');return code.length;}catch{return 0;}},{timeout:30000}).toBe(6);
+ await page.getByLabel('Six-digit verification code').fill(code);
+ await page.getByRole('button',{name:'Verify and continue'}).click();
+ await expect(page.getByRole('heading',{name:'Your workspaces',exact:true})).toBeVisible();
+ await page.getByRole('link',{name:'Create a Free workspace'}).click();
+ await page.getByLabel('Workspace or organization name').fill('Compose Sandbox '+Date.now());
+ await page.getByLabel('City',{exact:true}).fill('Pune');
+ await page.getByLabel('State / union territory').fill('Maharashtra');
+ await page.getByRole('checkbox').check();
+ await page.getByRole('button',{name:'Confirm and create Free workspace'}).click();
+ await expect(page).toHaveURL(/setup\?workspace=/);
+ await expect(page.getByRole('heading',{name:'Setup progress'})).toBeVisible();
+ const setup=page.url();
+ expect((await context.cookies()).find(c=>c.name==='lmt_dev_session')?.httpOnly).toBe(true);
+ expect((await page.request.get('/actuator/health')).status()).toBe(404);
+ const outsider=await browser.newContext({baseURL:'http://127.0.0.1:3100'});
+ expect((await outsider.request.get('/api/v1/workspaces/'+new URL(setup).searchParams.get('workspace')+'/setup')).status()).toBe(401);
+ await page.goto('/account/uploads');
+ const document='%PDF-1.7\nCompose sandbox persistence check\n%%EOF';
+ await page.getByLabel('Test document',{exact:true}).setInputFiles({name:'compose-sandbox.pdf',mimeType:'application/pdf',buffer:Buffer.from(document)});
+ await page.getByRole('button',{name:'Confirm upload to quarantine'}).click();
+ await expect(page.getByRole('status').filter({hasText:'is quarantined'})).toBeVisible();
+ const uploads=await(await page.request.get('/api/v1/documents/upload-intents')).json();
+ const uploadId=uploads.items[0].id;
+ if(!/^[0-9a-f-]{36}$/.test(uploadId))throw Error('Invalid upload reference');
+ expect((await page.request.get('/api/v1/documents/'+uploadId+'/download')).status()).toBe(403);
+ // Recreate runtime containers: database/session and private volume are retained.
+ compose('up','-d','--force-recreate','--wait','api','worker','web');
+ await page.goto(setup);
+ await expect(page.getByRole('heading',{name:'Setup progress'})).toBeVisible();
+ expect(compose('exec','-T','worker','cat','/data/quarantine/'+uploadId)).toBe(document);
+ console.log('PASS: proxy UI, sandbox worker delivery, Free provisioning, scope denial, private health, session/workspace/private upload survival after recreation.');
+} finally {await browser.close();}

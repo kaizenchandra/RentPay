@@ -12,7 +12,8 @@ public class IdentityConfig {
    @Value("${lmt.security.allowed-origins:https://localhost}") String origins, @Value("${server.address:}") String bind){
    sandbox=mode.equals("sandbox");this.secret=secret;this.inbox=inbox;
    this.origins=Set.of(origins.split(","));
-   if(sandbox && (!Set.of(env.getActiveProfiles()).equals(Set.of("local")) || secret.length()<32 || inbox.isBlank() || !Set.of("127.0.0.1","::1","localhost").contains(bind)))
+   boolean containerLocal=env.getProperty("lmt.container-sandbox",Boolean.class,false)&&bind.equals("0.0.0.0")&&this.origins.stream().allMatch(o->{try{var uri=java.net.URI.create(o);return uri.getScheme().equals("http")&&Set.of("localhost","127.0.0.1").contains(uri.getHost());}catch(Exception invalid){return false;}});
+   if(sandbox && (!Set.of(env.getActiveProfiles()).equals(Set.of("local")) || secret.length()<32 || inbox.isBlank() || (!Set.of("127.0.0.1","::1","localhost").contains(bind)&&!containerLocal)))
      throw new IllegalStateException("Sandbox identity requires only the local profile, a private inbox and a secret of at least 32 characters");
    if(!sandbox && this.origins.stream().anyMatch(o->!o.startsWith("https://"))) throw new IllegalStateException("Production origins require HTTPS");
  }
