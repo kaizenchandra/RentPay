@@ -27,7 +27,7 @@ public class CatalogService {
                     SELECT DISTINCT ON (code) * FROM plan_version
                     WHERE audience = :audience AND publication_state = 'published' AND effective_at <= :asOf
                     ORDER BY code, effective_at DESC
-                ) active ORDER BY rentable_limit NULLS LAST, code
+                ) active WHERE NOT EXISTS(SELECT 1 FROM plan_offering_availability o WHERE o.audience=active.audience AND o.code=active.code AND NOT o.available) ORDER BY rentable_limit NULLS LAST, code
                 """).param("audience", audience).param("asOf", java.time.OffsetDateTime.ofInstant(asOf, java.time.ZoneOffset.UTC))
                 .query((rs, row) -> {
                     var amount = rs.getBigDecimal(interval.equals("annual") ? "annual_amount" : "monthly_amount");

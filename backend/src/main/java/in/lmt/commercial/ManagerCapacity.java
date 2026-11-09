@@ -10,13 +10,11 @@ import org.springframework.transaction.annotation.*;
 @Service
 @Transactional(propagation=Propagation.MANDATORY)
 public class ManagerCapacity {
- private final JdbcClient db;
- public ManagerCapacity(JdbcClient db){this.db=db;}
+ private final JdbcClient db;private final ManagerUsageEvidence evidence;
+ public ManagerCapacity(JdbcClient db,ManagerUsageEvidence evidence){this.db=db;this.evidence=evidence;}
  public void consume(UUID workspace,UUID member,UUID invitation){
-  int recorded=db.sql("SELECT used FROM workspace_grant WHERE workspace_id=:w AND resource='managers' FOR UPDATE").param("w",workspace).query(Integer.class).single();
-  long allocated=db.sql("SELECT count(*) FROM manager_allocation WHERE workspace_id=:w AND status='committed'").param("w",workspace).query(Long.class).single();
-  long events=db.sql("SELECT coalesce(sum(quantity),0) FROM manager_usage_event WHERE workspace_id=:w").param("w",workspace).query(Long.class).single();
-  if(recorded!=allocated||recorded!=events)throw new ApiProblem(409,"CAPACITY_RECONCILIATION_REQUIRED","Manager usage disagrees with allocation evidence. Ask an operator to review it; no membership was added.");
+  var grant=db.sql("SELECT used,reserved FROM workspace_grant WHERE workspace_id=:w AND resource='managers' FOR UPDATE").param("w",workspace).query().singleRow();
+  if(!evidence.read(workspace).matches(((Number)grant.get("used")).intValue(),((Number)grant.get("reserved")).intValue()))throw new ApiProblem(409,"CAPACITY_RECONCILIATION_REQUIRED","Manager usage disagrees with allocation evidence. Ask an operator to review it; no membership was added.");
   // Reserve the last slot under the grant row lock, then consume in the same atomic transaction.
   int reserved=db.sql("UPDATE workspace_grant SET reserved=reserved+1 WHERE workspace_id=:w AND resource='managers' AND used+reserved<allowance")
    .param("w",workspace).update();

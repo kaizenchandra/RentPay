@@ -6,7 +6,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-@RestControllerAdvice(basePackages={"in.lmt.identity","in.lmt.workspace","in.lmt.orchestration"})
+@org.springframework.core.annotation.Order(-1)
+@RestControllerAdvice(basePackages={"in.lmt.identity","in.lmt.workspace","in.lmt.orchestration","in.lmt.catalog.admin","in.lmt.documents","in.lmt.commercial"})
 public class ApiErrors {
     public static ResponseEntity<ProblemDetail> response(int status,String code,String detail,List<Map<String,String>> fields) {
         var p=ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(status),detail);

@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "LMT implemented foundation API",
-    "version": "0.6.0",
+    "version": "0.27.0",
     "description": "Implemented catalogue, sandbox identity/account controls, Free provisioning and manager membership invitations. Other platform operations remain pending."
   },
   "servers": [
@@ -401,7 +401,7 @@
         ],
         "responses": {
           "202": {
-            "description": "Durably accepted challenge; poll Location for delivery. No SMS is sent in sandbox.",
+            "description": "Durably accepted contact challenge; poll Location for delivery. No SMS or email is sent in sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -508,7 +508,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Local sandbox mobile or email OTP only. Request response does not disclose account existence. Email domains are lowercased and local parts retain case; no account linking or merging. Codes expire after five minutes and permit five attempts. Five requests per destination/session per fifteen minutes. Sandbox proof cannot authenticate a live-mode account. Live delivery is not configured."
       }
     },
     "/auth/challenges/{id}": {
@@ -4247,6 +4248,5119 @@
           }
         }
       }
+    },
+    "/admin/plans": {
+      "get": {
+        "operationId": "reviewPlanVersions",
+        "summary": "Review commercial versions under explicit platform authority",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workspace",
+                "consumer"
+              ],
+              "default": "workspace"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Exclusive version UUID from the preceding page; every request rechecks authority."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized version review; includes drafts and scheduled/historical versions. Access is audited.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed cursor",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Commercial review grant missing, expired or revoked",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid audience",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/plans/{id}/versions": {
+      "post": {
+        "operationId": "createPlanDraft",
+        "summary": "Copy a published version into an unpublished editorial draft",
+        "description": "In this version-backed catalogue, id selects the immutable published source version. Audience, code, currency, limits, prices and baseline classification are inherited server-side. Future effective time is a proposal, not scheduled publication.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanDraftInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Draft authority or CSRF denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published source unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or effective-date conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Source ETag mismatch",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Source confirmation required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same command after dependency failure",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Draft created, or original result replayed. No publication or contract change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDraftResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/plan-versions/{id}/activation-preview": {
+      "get": {
+        "operationId": "reviewPlanActivation",
+        "summary": "Create an actor-bound five-minute publication review",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Publication authority or CSRF denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Version unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale/expired review or competing publication; changed idempotency body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Draft changed since review",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Exact draft confirmation required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same command after outage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Audited, expiring review of exact inherited terms; no publication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanActivationPreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/plan-versions/{id}/activate": {
+      "post": {
+        "operationId": "activateEditorialPlanVersion",
+        "summary": "Publish a reviewed editorial version at its proposed effective date",
+        "description": "Requires separate publication authority. Inherited commercial terms only; existing subscriptions are unchanged. Public reads select the version only when its effective instant arrives.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanActivationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Publication authority or CSRF denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Version unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale/expired review or competing publication; changed idempotency body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Draft changed since review",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Exact draft confirmation required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same command after outage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Publication committed, or prior result replayed; effective date remains authoritative.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanActivationResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/plan-versions/{id}": {
+      "patch": {
+        "operationId": "editEditorialPlanDraft",
+        "summary": "Update unpublished editorial terms with immutable before/after evidence",
+        "description": "Explicit draft-edit authority, exact revision and actor-scoped idempotency are required. Prices, limits and source provenance cannot be edited. Existing publication reviews become stale.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanDraftInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Draft authority or CSRF denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published source unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or effective-date conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Source ETag mismatch",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Source confirmation required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same command after dependency failure",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Draft updated, or original result replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDraftEditResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/plan-versions/{id}/discard": {
+      "post": {
+        "operationId": "discardEditorialDraft",
+        "summary": "Discard an unpublished draft while retaining its evidence",
+        "description": "Requires explicit discard authority, current ETag, reason and actor-scoped idempotency. Discarded versions are terminal and excluded from publication; no rows or historical terms are deleted.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanDraftDiscardInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Publication authority or CSRF denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Version unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version is not discardable or idempotency confirmation changed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Draft changed since confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Exact draft confirmation required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same command after outage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Discard committed, or its original result replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDraftDiscardResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/plan-versions/{id}/availability": {
+      "get": {
+        "operationId": "getOfferingAvailability",
+        "summary": "Review whole-offering availability using a published version selector",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing authority or CSRF",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published selector unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Protected Free, unchanged state, or changed idempotency confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Availability changed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid reason or state",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing availability confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure; retry same command",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Offering-level availability; applies to every current/future version. Existing contracts are unaffected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferingAvailability"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "changeOfferingAvailability",
+        "summary": "Withdraw or restore an offering without changing contracted terms",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferingAvailabilityInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing authority or CSRF",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published selector unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Protected Free, unchanged state, or changed idempotency confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Availability changed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid reason or state",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing availability confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure; retry same command",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Offering-level availability; applies to every current/future version. Existing contracts are unaffected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferingAvailability"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/upload-intents": {
+      "get": {
+        "operationId": "listMyUploadIntents",
+        "summary": "listMyUploadIntents",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Content/key conflict or expired intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Stale intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authoritative private sandbox state; quarantine never establishes scan clearance.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uploads"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPrivateUploadIntent",
+        "summary": "createPrivateUploadIntent",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Content/key conflict or expired intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Stale intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authoritative private sandbox state; quarantine never establishes scan clearance.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadView"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{id}": {
+      "get": {
+        "operationId": "getMyUploadStatus",
+        "summary": "getMyUploadStatus",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Content/key conflict or expired intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Stale intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authoritative private sandbox state; quarantine never establishes scan clearance.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{id}/finalize": {
+      "post": {
+        "operationId": "receivePrivateUpload",
+        "summary": "receivePrivateUpload",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Content/key conflict or expired intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Stale intent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Authoritative private sandbox state; quarantine never establishes scan clearance.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadView"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "maxLength": 1048576
+              }
+            }
+          }
+        },
+        "description": "Transfers the exact file bound to a 15-minute account-owned intent into private quarantine. The intent ID and SHA-256 are the logical idempotency key/body binding; exact repeat returns the same quarantined state, including after expiry. No malware scanner, clean state, access link or download is enabled. Signature checks alone do not establish safety."
+      }
+    },
+    "/documents/{id}/storage": {
+      "get": {
+        "operationId": "getUploadStorageReview",
+        "summary": "Read the last private integrity observation, not a live scan",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency body, unquarantined upload, wrong file, or non-restorable stored content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Storage review changed; refresh and confirm again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Durable storage observation. Replay returns the original observation; refresh GET for current recorded status. CheckedAt is a past observation, not continuous monitoring or a malware scan.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong storage-review revision tag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStorageReview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{id}/storage/check": {
+      "post": {
+        "operationId": "checkUploadStorage",
+        "summary": "Check private stored size and digest; never grant malware clearance",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency body, unquarantined upload, wrong file, or non-restorable stored content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Storage review changed; refresh and confirm again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Durable storage observation. Replay returns the original observation; refresh GET for current recorded status. CheckedAt is a past observation, not continuous monitoring or a malware scan.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong storage-review revision tag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStorageReview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{id}/storage/restore": {
+      "post": {
+        "operationId": "restoreMissingUpload",
+        "summary": "Restore a reviewed missing file using its exact original bytes",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency body, unquarantined upload, wrong file, or non-restorable stored content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Storage review changed; refresh and confirm again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Durable storage observation. Replay returns the original observation; refresh GET for current recorded status. CheckedAt is a past observation, not continuous monitoring or a malware scan.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong storage-review revision tag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStorageReview"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "maxLength": 1048576
+              }
+            }
+          }
+        },
+        "description": "Requires current missing-file review ETag, scoped idempotency key, current account authority and exact original length/SHA-256. Preserves immutable quarantine and never overwrites a different existing object. No download or scan clearance."
+      }
+    },
+    "/documents/{id}/scan": {
+      "get": {
+        "operationId": "getDocumentScanOperation",
+        "summary": "getDocumentScanOperation",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed key/body, operation already cancelled or not retryable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Scan operation changed; refresh and confirm again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Server-confirmed operation state. Exact replay returns the recorded result; GET reports current state.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong scan-operation revision tag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentScanDetail"
+                }
+              }
+            }
+          }
+        },
+        "description": "Account-owned durable scan preparation, automatically queued at quarantine. The current worker checks storage then blocks because no malware scanner is configured. No clean state, download or malware clearance. Last five attempts are returned, newest first. Retry starts another bounded cycle; cancellation fences unfinished work and never deletes quarantine."
+      }
+    },
+    "/documents/{id}/scan/retry": {
+      "post": {
+        "operationId": "retryDocumentScanPreparation",
+        "summary": "retryDocumentScanPreparation",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed key/body, operation already cancelled or not retryable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Scan operation changed; refresh and confirm again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Durable recheck accepted; not scan success. Poll Location with current identity.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong scan-operation revision tag"
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "/api/v1/documents/{id}/scan"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentScanOperation"
+                }
+              }
+            }
+          }
+        },
+        "description": "Account-owned durable scan preparation, automatically queued at quarantine. The current worker checks storage then blocks because no malware scanner is configured. No clean state, download or malware clearance. Last five attempts are returned, newest first. Retry starts another bounded cycle; cancellation fences unfinished work and never deletes quarantine.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentScanInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{id}/scan/cancel": {
+      "post": {
+        "operationId": "cancelDocumentScanPreparation",
+        "summary": "cancelDocumentScanPreparation",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or authority denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload unavailable to this subject",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed key/body, operation already cancelled or not retryable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Scan operation changed; refresh and confirm again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid file metadata, size or signature",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing If-Match",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox safety rate limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or database unavailable; retry same upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Server-confirmed operation state. Exact replay returns the recorded result; GET reports current state.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong scan-operation revision tag"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentScanOperation"
+                }
+              }
+            }
+          }
+        },
+        "description": "Account-owned durable scan preparation, automatically queued at quarantine. The current worker checks storage then blocks because no malware scanner is configured. No clean state, download or malware clearance. Last five attempts are returned, newest first. Retry starts another bounded cycle; cancellation fences unfinished work and never deletes quarantine.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentScanInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/workspaces/{id}/member-entitlement": {
+      "get": {
+        "operationId": "getWorkspaceMemberOverride",
+        "summary": "Review scoped temporary manager-onboarding eligibility",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current workspace-scoped operator authority or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published selector unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Override changed or expired",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid effect, reason or expiry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing current override ETag",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure; retry same command",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Scoped override state; strong ETag includes expiry-effective state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitlementOverride"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requires an explicit current operator grant for the selected workspace. Workspace ownership and global plan review do not suffice. Only WORKSPACE_MEMBER_ADD is supported; grants do not confer permissions, capacity or paid status. Restrictions remain stronger; corrective revocation is protected. Expiry must be in the next 24 hours in this sandbox; inherit requires null expiry. Exact replay returns original command result; GET provides current state."
+      },
+      "post": {
+        "operationId": "changeWorkspaceMemberOverride",
+        "summary": "Confirm an expiring workspace capability override",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntitlementOverrideInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current workspace-scoped operator authority or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Published selector unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Override changed or expired",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid effect, reason or expiry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing current override ETag",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure; retry same command",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Scoped override state; strong ETag includes expiry-effective state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitlementOverride"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requires an explicit current operator grant for the selected workspace. Workspace ownership and global plan review do not suffice. Only WORKSPACE_MEMBER_ADD is supported; grants do not confer permissions, capacity or paid status. Restrictions remain stronger; corrective revocation is protected. Expiry must be in the next 24 hours in this sandbox; inherit requires null expiry. Exact replay returns original command result; GET provides current state."
+      }
+    },
+    "/admin/workspaces/{id}/manager-capacity-repair": {
+      "get": {
+        "operationId": "reviewManagerCapacityRepair",
+        "summary": "Review manager counter repair",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current workspace-scoped operator authority or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Active workspace ownership required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Source evidence inconsistent, already reconciled, or changed idempotency payload.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Reviewed capacity evidence changed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid reason.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing current repair ETag",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure; retry same command",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Current repair projection; ETag binds reviewed counter and source evidence plus repair revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapacityRepair"
+                }
+              }
+            }
+          }
+        },
+        "description": "Sandbox only. Requires current scoped capacity-repair authority AND active workspace ownership. Locks serialize with membership operations. Only counters may be restored from mutually consistent membership/allocation/event evidence; no client-supplied quantities. Exact replay requires current authority and returns the recorded result. Refresh GET for current evidence."
+      },
+      "post": {
+        "operationId": "repairManagerCapacity",
+        "summary": "Confirm manager counter repair",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CapacityRepairInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current workspace-scoped operator authority or CSRF required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Active workspace ownership required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Source evidence inconsistent, already reconciled, or changed idempotency payload.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Reviewed capacity evidence changed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid reason.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Missing current repair ETag",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency failure; retry same command",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Current repair projection; ETag binds reviewed counter and source evidence plus repair revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapacityRepair"
+                }
+              }
+            }
+          }
+        },
+        "description": "Sandbox only. Requires current scoped capacity-repair authority AND active workspace ownership. Locks serialize with membership operations. Only counters may be restored from mutually consistent membership/allocation/event evidence; no client-supplied quantities. Exact replay requires current authority and returns the recorded result. Refresh GET for current evidence."
+      }
+    },
+    "/workspaces/{w}/usage/repairs": {
+      "get": {
+        "operationId": "listWorkspaceCapacityRepairs",
+        "tags": [
+          "commercial"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-only manager counter repair history; no shared cache.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapacityRepairHistory"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                },
+                "description": "Private history must not enter shared caches."
+              }
+            }
+          },
+          "400": {
+            "description": "Safe problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Active workspace owners may review retained counter repairs without an active repair grant. Newest repair revision first; 25 entries per page. Inclusive Asia/Kolkata dates default to the latest 30 days, at most 366 days. Cursor is bound to actor, workspace and date filters. Current authority is checked on every page. No operator identity, request keys, hashes or raw command payloads are returned. Counts and asOf describe each request, not a frozen multi-page snapshot.",
+        "summary": "Review owner-scoped manager counter repair history"
+      }
+    },
+    "/me/identity-links/challenges": {
+      "post": {
+        "operationId": "requestEmailLinkChallenge",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF denied or REAUTHENTICATION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency request or current-session revocation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Durable linking challenge accepted, not yet linked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Challenge"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe problem details; preserve same command on unknown outcome.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Sandbox only; requires recent current sign-in. Adds an unused alternate email or Indian mobile to the current account. Omitted request channel defaults to email for existing clients. No contact replacement or merging. Proof binds current actor, session, purpose and profile version. If-Match is the profile ETag. Same confirmation key/body returns original result after current authority checks; changed body conflicts. Purpose-specific email/mobile linking codes cannot be used for sign-in. Linking a mobile exposes matching invitations for explicit review, never automatic acceptance. Existing account contexts remain on the same account; durable audit and in-app security notice commit atomically.",
+        "summary": "Request contact linking proof",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLinkRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/identity-links": {
+      "post": {
+        "operationId": "confirmEmailIdentityLink",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF denied or REAUTHENTICATION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency request or current-session revocation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Contact linked; original result on exact retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe problem details; preserve same command on unknown outcome.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Sandbox only; requires recent current sign-in. Adds an unused alternate email or Indian mobile to the current account. Omitted request channel defaults to email for existing clients. No contact replacement or merging. Proof binds current actor, session, purpose and profile version. If-Match is the profile ETag. Same confirmation key/body returns original result after current authority checks; changed body conflicts. Purpose-specific email/mobile linking codes cannot be used for sign-in. Linking a mobile exposes matching invitations for explicit review, never automatic acceptance. Existing account contexts remain on the same account; durable audit and in-app security notice commit atomically.",
+        "summary": "Confirm verified contact link",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLinkConfirm"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/reauthentication/challenges": {
+      "post": {
+        "operationId": "requestSessionReauthentication",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF denied or REAUTHENTICATION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency request or current-session revocation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted proof request; no verification yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Challenge"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe problem details; preserve same command on unknown outcome.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requires an active current session, not a recent sign-in. Server selects an already linked contact. Proof is bound to actor, session, purpose and profile version. On success the opaque session rotates and recent-authentication time is refreshed. No new account or workspace permission. Verification is single-use, not idempotent: after an unknown response reload to check the current session, or sign in again if rotation was not received.",
+        "summary": "Request current-contact reauthentication",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthenticationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/reauthentication/verify": {
+      "post": {
+        "operationId": "verifySessionReauthentication",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF denied or REAUTHENTICATION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency request or current-session revocation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Current session reauthenticated and rotated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthenticationResult"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe problem details; preserve same command on unknown outcome.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requires an active current session, not a recent sign-in. Server selects an already linked contact. Proof is bound to actor, session, purpose and profile version. On success the opaque session rotates and recent-authentication time is refreshed. No new account or workspace permission. Verification is single-use, not idempotent: after an unknown response reload to check the current session, or sign in again if rotation was not received.",
+        "summary": "Verify and rotate current session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthenticationVerify"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/notifications": {
+      "get": {
+        "operationId": "listAccountNotifications",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-confirmed account-owned result. No bearer/session-cookie values are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityNotices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF denied or REAUTHENTICATION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency request or current-session revocation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/notifications/{id}/read": {
+      "post": {
+        "operationId": "markAccountNotificationRead",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted notification read state.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong current notice version"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityNotice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin or CSRF denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency key reused for a different confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Strong notification If-Match and actor-scoped idempotency required. Records first read time without deleting the notice. Read is not legal acceptance or proof of external delivery. Same key/version replays the committed result; stale versions fail. No workspace membership or paid plan required.",
+        "summary": "Mark an owned notification as read"
+      }
+    },
+    "/me/session-revocation-preview": {
+      "post": {
+        "operationId": "previewSessionRevocations",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviewed selection; no sessions ended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionRevocationPreview"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong reviewed selection version"
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF denied or REAUTHENTICATION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency request or current-session revocation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Account-owned selection of 1\u201325 distinct other sessions. Preview is read-only and returns a strong selection ETag bound to the actor, current session and selected session versions. Confirmation requires that If-Match, recent verification, CSRF and an actor-scoped idempotency key. Only listed sessions end; concurrent new sign-ins are not included. Any stale or inaccessible target rejects the whole command. Exact retry returns the committed outcome.",
+        "summary": "Review selected sessions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectSessions"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/session-revocations": {
+      "post": {
+        "operationId": "revokeSelectedSessions",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All listed sessions revoked in one transaction.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchRevokedSessions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF denied or REAUTHENTICATION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Privacy-safe unavailable resource",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Changed idempotency request or current-session revocation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_STALE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field or cursor validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retry same operation after service recovery",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "description": "Account-owned selection of 1\u201325 distinct other sessions. Preview is read-only and returns a strong selection ETag bound to the actor, current session and selected session versions. Confirmation requires that If-Match, recent verification, CSRF and an actor-scoped idempotency key. Only listed sessions end; concurrent new sign-ins are not included. Any stale or inaccessible target rejects the whole command. Exact retry returns the committed outcome.",
+        "summary": "End reviewed sessions atomically",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectSessions"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/recovery/challenges": {
+      "post": {
+        "operationId": "requestAccountRecovery",
+        "tags": [
+          "identity"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Reuse for retries of the same logical command. Changed request with same key conflicts."
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token from GET /auth/csrf. Browser must also send an allowlisted Origin."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Durably accepted contact challenge; poll Location for delivery. No SMS or email is sent in sandbox.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryChallenge"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "description": "Created resource/status URL",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or missing header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not available to this identity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale plan, proof or idempotency conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid fields",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryRequest"
+              }
+            }
+          }
+        },
+        "description": "Signed-out browser only. CSRF and origin protection apply. Request responses do not disclose account existence. Uses an expiring session/purpose-bound single-use proof. Explicit confirmation revokes existing account sessions, advances authentication generation, invalidates earlier sign-in/recovery codes and retains account/workspaces. Does not create, merge or replace contacts. Local private inbox is sandbox-only. Verification is not idempotent; after an unknown response check the current session or sign in with a new code.",
+        "summary": "Request linked-contact recovery"
+      }
+    },
+    "/auth/recovery/verify": {
+      "post": {
+        "operationId": "verifyAccountRecovery",
+        "tags": [
+          "identity"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token from GET /auth/csrf. Browser must also send an allowlisted Origin."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authoritative server result. Private responses are no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or missing header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not available to this identity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale plan, proof or idempotency conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid fields",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryProof"
+              }
+            }
+          }
+        },
+        "summary": "Recover existing account and end prior sessions",
+        "description": "Signed-out browser only. CSRF and origin protection apply. Request responses do not disclose account existence. Uses an expiring session/purpose-bound single-use proof. Explicit confirmation revokes existing account sessions, advances authentication generation, invalidates earlier sign-in/recovery codes and retains account/workspaces. Does not create, merge or replace contacts. Local private inbox is sandbox-only. Verification is not idempotent; after an unknown response check the current session or sign in with a new code."
+      }
+    },
+    "/auth/recovery/outcome": {
+      "post": {
+        "operationId": "readRecoveryOutcome",
+        "tags": [
+          "identity"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token from GET /auth/csrf. Browser must also send an allowlisted Origin."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coarse recovery state only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or missing header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign in required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF or permission denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing, incorrect, expired or wrong-purpose grant.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale plan, proof or idempotency conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid fields",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request limit reached",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryOutcomeRequest"
+              }
+            }
+          }
+        },
+        "summary": "Read committed recovery outcome",
+        "description": "Read-only POST keeps the outcome grant out of URLs. CSRF/origin protected; grant is scoped to one recovery challenge and expires 15 minutes after request. Works without the rotated session cookie. Returns no account identity, contact or authentication authority. Completion proves committed recovery, not browser cookie delivery. not_completed does not cancel or exclude an in-flight verification. Never replay recovery based on this read."
+      }
     }
   },
   "components": {
@@ -4506,12 +9620,15 @@
           "channel": {
             "type": "string",
             "enum": [
-              "mobile"
+              "mobile",
+              "email"
             ]
           },
           "destination": {
             "type": "string",
-            "pattern": "^\\+91[6-9][0-9]{9}$"
+            "minLength": 1,
+            "maxLength": 254,
+            "description": "Indian mobile in +91 format or supported ASCII email. Email domain is lowercased; local part is case-sensitive. No automatic account linking."
           },
           "purpose": {
             "type": "string",
@@ -4864,7 +9981,8 @@
           "mode",
           "maskedMobile",
           "version",
-          "etag"
+          "etag",
+          "maskedEmail"
         ],
         "properties": {
           "id": {
@@ -4882,7 +10000,10 @@
             ]
           },
           "maskedMobile": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "version": {
             "type": "integer",
@@ -4890,6 +10011,12 @@
           },
           "etag": {
             "type": "string"
+          },
+          "maskedEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -4974,7 +10101,10 @@
         "required": [
           "id",
           "message",
-          "occurredAt"
+          "occurredAt",
+          "readAt",
+          "version",
+          "etag"
         ],
         "properties": {
           "id": {
@@ -4987,6 +10117,20 @@
           "occurredAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "readAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "etag": {
+            "type": "string"
           }
         }
       },
@@ -5043,7 +10187,8 @@
           "items",
           "page",
           "totalMatching",
-          "asOf"
+          "asOf",
+          "unreadCount"
         ],
         "properties": {
           "items": {
@@ -5079,6 +10224,11 @@
           "asOf": {
             "type": "string",
             "format": "date-time"
+          },
+          "unreadCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "All unread notices owned by the current account, not just this page."
           }
         }
       },
@@ -5179,7 +10329,9 @@
           "status",
           "expiresAt",
           "version",
-          "etag"
+          "etag",
+          "channel",
+          "maskedDestination"
         ],
         "properties": {
           "id": {
@@ -5194,7 +10346,10 @@
             "type": "string"
           },
           "maskedMobile": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "role": {
             "type": "string",
@@ -5224,6 +10379,16 @@
             "minimum": 0
           },
           "etag": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "email"
+            ]
+          },
+          "maskedDestination": {
             "type": "string"
           }
         }
@@ -5342,15 +10507,40 @@
       "InviteManager": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "mobile"
-        ],
         "properties": {
           "mobile": {
             "type": "string",
             "pattern": "^\\+91[6-9][0-9]{9}$"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 254,
+            "description": "Email identity rules: ASCII local-part spelling preserved; domain normalized to lowercase."
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "mobile"
+            ],
+            "not": {
+              "required": [
+                "email"
+              ]
+            }
+          },
+          {
+            "required": [
+              "email"
+            ],
+            "not": {
+              "required": [
+                "mobile"
+              ]
+            }
+          }
+        ]
       },
       "MembershipOutcome": {
         "type": "object",
@@ -5389,7 +10579,10 @@
           "eligible",
           "reason",
           "policyVersion",
-          "planVersionId"
+          "planVersionId",
+          "source",
+          "overrideRevision",
+          "overrideExpiresAt"
         ],
         "properties": {
           "code": {
@@ -5410,6 +10603,26 @@
           "planVersionId": {
             "type": "string",
             "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "plan",
+              "temporary_override"
+            ]
+          },
+          "overrideRevision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "overrideExpiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -5424,7 +10637,8 @@
           "remaining",
           "available",
           "reconciled",
-          "definition"
+          "definition",
+          "evidence"
         ],
         "properties": {
           "resource": {
@@ -5462,6 +10676,16 @@
           },
           "definition": {
             "type": "string"
+          },
+          "evidence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ManagerReconciliation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -5838,6 +11062,1345 @@
             "minLength": 10,
             "maxLength": 300,
             "pattern": "^[^\\x00-\\x1f\\x7f]*$"
+          }
+        }
+      },
+      "PlanReviewVersion": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "version",
+          "state",
+          "effectiveAt",
+          "baselineOnly",
+          "rentableLimit",
+          "managerLimit",
+          "monthlyAmount",
+          "annualAmount",
+          "currency",
+          "disclosure",
+          "etag"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "discarded"
+            ]
+          },
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "baselineOnly": {
+            "type": "boolean"
+          },
+          "rentableLimit": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "managerLimit": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "monthlyAmount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "annualAmount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "const": "INR"
+          },
+          "disclosure": {
+            "type": "string"
+          },
+          "etag": {
+            "type": "string"
+          }
+        }
+      },
+      "PlanReview": {
+        "type": "object",
+        "required": [
+          "audience",
+          "items",
+          "page",
+          "totalMatching",
+          "asOf",
+          "accessExpiresAt",
+          "canCreateDraft",
+          "canPublish",
+          "canEditDraft",
+          "canDiscardDraft"
+        ],
+        "properties": {
+          "audience": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "consumer"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanReviewVersion"
+            }
+          },
+          "page": {
+            "type": "object",
+            "required": [
+              "limit",
+              "nextCursor"
+            ],
+            "properties": {
+              "limit": {
+                "type": "integer"
+              },
+              "nextCursor": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "totalMatching": {
+            "type": "integer"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accessExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "canCreateDraft": {
+            "type": "boolean"
+          },
+          "canPublish": {
+            "type": "boolean"
+          },
+          "canEditDraft": {
+            "type": "boolean"
+          },
+          "canDiscardDraft": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PlanDraftInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "effectiveAt",
+          "disclosure",
+          "reason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disclosure": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300
+          }
+        }
+      },
+      "PlanDraftResult": {
+        "type": "object",
+        "required": [
+          "id",
+          "sourceId",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "const": "draft"
+          }
+        }
+      },
+      "PlanActivationPreview": {
+        "type": "object",
+        "required": [
+          "id",
+          "draft",
+          "source",
+          "expiresAt",
+          "offeringAvailable"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/PlanReviewVersion"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PlanReviewVersion"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "offeringAvailable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PlanActivationInput": {
+        "type": "object",
+        "required": [
+          "reviewId",
+          "reason"
+        ],
+        "properties": {
+          "reviewId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300
+          }
+        }
+      },
+      "PlanActivationResult": {
+        "type": "object",
+        "required": [
+          "id",
+          "state",
+          "effectiveAt",
+          "etag"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "const": "published"
+          },
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "etag": {
+            "type": "string"
+          }
+        }
+      },
+      "PlanDraftEditResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PlanDraftResult"
+          },
+          {
+            "type": "object",
+            "required": [
+              "etag"
+            ],
+            "properties": {
+              "etag": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "PlanDraftDiscardInput": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300
+          }
+        }
+      },
+      "PlanDraftDiscardResult": {
+        "type": "object",
+        "required": [
+          "id",
+          "state",
+          "etag"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "const": "discarded"
+          },
+          "etag": {
+            "type": "string"
+          }
+        }
+      },
+      "OfferingAvailability": {
+        "type": "object",
+        "required": [
+          "selectedVersion",
+          "audience",
+          "code",
+          "available",
+          "etag",
+          "protectedOffering",
+          "canChange"
+        ],
+        "properties": {
+          "selectedVersion": {
+            "$ref": "#/components/schemas/PlanReviewVersion"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "consumer"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "etag": {
+            "type": "string"
+          },
+          "protectedOffering": {
+            "type": "boolean"
+          },
+          "canChange": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OfferingAvailabilityInput": {
+        "type": "object",
+        "required": [
+          "available",
+          "reason"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300
+          }
+        }
+      },
+      "UploadInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "filename",
+          "mediaType",
+          "byteSize",
+          "sha256"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[^\\x00-\\x1f\\x7f/\\\\]+$"
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "application/pdf",
+              "image/png",
+              "image/jpeg"
+            ]
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "UploadView": {
+        "type": "object",
+        "required": [
+          "filename",
+          "mediaType",
+          "byteSize",
+          "sha256",
+          "id",
+          "state",
+          "expiresAt",
+          "etag",
+          "mode",
+          "scanStatus"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[^\\x00-\\x1f\\x7f/\\\\]+$"
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "application/pdf",
+              "image/png",
+              "image/jpeg"
+            ]
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "awaiting_upload",
+              "expired",
+              "quarantined"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "etag": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "local_sandbox"
+            ]
+          },
+          "scanStatus": {
+            "type": "string",
+            "enum": [
+              "unavailable"
+            ]
+          }
+        }
+      },
+      "Uploads": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadView"
+            }
+          },
+          "page": {
+            "type": "object",
+            "required": [
+              "limit",
+              "nextCursor"
+            ],
+            "properties": {
+              "limit": {
+                "type": "integer"
+              },
+              "nextCursor": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "UploadStorageReview": {
+        "type": "object",
+        "required": [
+          "uploadId",
+          "outcome",
+          "revision",
+          "checkedAt",
+          "etag",
+          "scanStatus"
+        ],
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "unchecked",
+              "intact",
+              "missing",
+              "mismatch",
+              "unavailable"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "checkedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "etag": {
+            "type": "string"
+          },
+          "scanStatus": {
+            "type": "string",
+            "enum": [
+              "unavailable"
+            ]
+          }
+        }
+      },
+      "DocumentScanOperation": {
+        "type": "object",
+        "required": [
+          "id",
+          "uploadId",
+          "status",
+          "revision",
+          "etag",
+          "attempts",
+          "cycleAttempts",
+          "maxAttempts",
+          "lastCode",
+          "updatedAt",
+          "nextAttemptAt",
+          "leaseUntil",
+          "scannerMode"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "blocked",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "etag": {
+            "type": "string"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cycleAttempts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "const": 5
+          },
+          "lastCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nextAttemptAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leaseUntil": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "scannerMode": {
+            "type": "string",
+            "const": "unavailable"
+          }
+        }
+      },
+      "DocumentScanInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$"
+          }
+        }
+      },
+      "DocumentScanDetail": {
+        "type": "object",
+        "required": [
+          "operation",
+          "recentAttempts",
+          "totalAttempts"
+        ],
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/DocumentScanOperation"
+          },
+          "totalAttempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recentAttempts": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "required": [
+                "attempt",
+                "outcome",
+                "startedAt",
+                "finishedAt"
+              ],
+              "properties": {
+                "attempt": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "startedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "finishedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      },
+      "EntitlementOverride": {
+        "type": "object",
+        "required": [
+          "workspaceId",
+          "capability",
+          "effect",
+          "expiresAt",
+          "active",
+          "revision",
+          "etag"
+        ],
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capability": {
+            "type": "string",
+            "const": "WORKSPACE_MEMBER_ADD"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny",
+              "inherit"
+            ]
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "etag": {
+            "type": "string"
+          }
+        }
+      },
+      "EntitlementOverrideInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "effect",
+          "expiresAt",
+          "reason"
+        ],
+        "properties": {
+          "effect": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny",
+              "inherit"
+            ]
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$"
+          }
+        }
+      },
+      "ManagerReconciliation": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Owner-only current snapshot evidence. Sandbox acceptance commits reservation and consumption together, so persisted manager reservations are unexplained. Counts do not authorize repairs.",
+        "required": [
+          "activeManagers",
+          "committedAllocations",
+          "eventBalance",
+          "inconsistentAllocations",
+          "unmatchedEvents",
+          "unexplainedReservations"
+        ],
+        "properties": {
+          "activeManagers": {
+            "type": "integer"
+          },
+          "committedAllocations": {
+            "type": "integer"
+          },
+          "eventBalance": {
+            "type": "integer"
+          },
+          "inconsistentAllocations": {
+            "type": "integer"
+          },
+          "unmatchedEvents": {
+            "type": "integer"
+          },
+          "unexplainedReservations": {
+            "type": "integer"
+          }
+        }
+      },
+      "CapacityRepairInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+          }
+        }
+      },
+      "CapacityRepair": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "workspaceId",
+          "used",
+          "reserved",
+          "allowance",
+          "targetUsed",
+          "targetReserved",
+          "revision",
+          "repairable",
+          "reason",
+          "etag"
+        ],
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "used": {
+            "type": "integer"
+          },
+          "reserved": {
+            "type": "integer"
+          },
+          "allowance": {
+            "type": "integer"
+          },
+          "targetUsed": {
+            "type": "integer"
+          },
+          "targetReserved": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "repairable": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "SOURCE_EVIDENCE_INCONSISTENT",
+              "ALREADY_RECONCILED",
+              "COUNTER_REPAIR_AVAILABLE"
+            ]
+          },
+          "etag": {
+            "type": "string"
+          }
+        }
+      },
+      "CapacityRepairHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "page",
+          "totalMatching",
+          "from",
+          "to",
+          "timezone",
+          "asOf"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapacityRepairEntry"
+            }
+          },
+          "page": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "limit",
+              "nextCursor"
+            ],
+            "properties": {
+              "limit": {
+                "type": "integer"
+              },
+              "nextCursor": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "totalMatching": {
+            "type": "integer"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "timezone": {
+            "type": "string",
+            "const": "Asia/Kolkata"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CapacityRepairEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "previousUsed",
+          "previousReserved",
+          "correctedUsed",
+          "correctedReserved",
+          "allowance",
+          "reason",
+          "occurredAt"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer"
+          },
+          "previousUsed": {
+            "type": "integer"
+          },
+          "previousReserved": {
+            "type": "integer"
+          },
+          "correctedUsed": {
+            "type": "integer"
+          },
+          "correctedReserved": {
+            "type": "integer"
+          },
+          "allowance": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EmailLinkRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "destination"
+        ],
+        "properties": {
+          "destination": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 254
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "mobile"
+            ],
+            "default": "email",
+            "description": "Omitted by older email-link clients; defaults to email. Only the missing contact can be added."
+          }
+        }
+      },
+      "EmailLinkConfirm": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "challengeId",
+          "code"
+        ],
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "ReauthenticationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "mobile"
+            ]
+          }
+        }
+      },
+      "ReauthenticationVerify": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "challengeId",
+          "code"
+        ],
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "ReauthenticationResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "authenticatedAt"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "reauthenticated"
+          },
+          "authenticatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SelectSessions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sessionIds"
+        ],
+        "properties": {
+          "sessionIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "SessionSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clientLabel",
+          "authenticatedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientLabel": {
+            "type": "string"
+          },
+          "authenticatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "SessionRevocationPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sessions",
+          "etag"
+        ],
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/SessionSelection"
+            }
+          },
+          "etag": {
+            "type": "string"
+          }
+        }
+      },
+      "BatchRevokedSessions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sessionIds",
+          "endedCount",
+          "status"
+        ],
+        "properties": {
+          "sessionIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "endedCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "status": {
+            "type": "string",
+            "const": "revoked"
+          }
+        }
+      },
+      "RecoveryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "destination"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "mobile"
+            ]
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 254
+          }
+        }
+      },
+      "RecoveryProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "challengeId",
+          "code",
+          "endExistingSessions"
+        ],
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "endExistingSessions": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "RecoveryChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "mode",
+          "maskedDestination",
+          "expiresAt",
+          "outcomeToken",
+          "outcomeExpiresAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "delivered",
+              "failed",
+              "expired",
+              "locked",
+              "consumed"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sandbox"
+            ]
+          },
+          "maskedDestination": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "outcomeToken": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Memory-only scoped read grant. Do not log or put in a URL; cannot authenticate or repeat recovery."
+          },
+          "outcomeExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RecoveryOutcomeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "challengeId",
+          "outcomeToken"
+        ],
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcomeToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "RecoveryOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "challengeId",
+          "status",
+          "completedAt"
+        ],
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_completed",
+              "completed",
+              "failed",
+              "expired",
+              "locked"
+            ]
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       }

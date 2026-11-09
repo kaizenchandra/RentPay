@@ -950,3 +950,75 @@ Workspace membership continuation: [ADR 0004](architecture/adrs/0004-sandbox-wor
 Commercial continuation: [ADR 0005](architecture/adrs/0005-membership-entitlements-and-usage.md) records the version-bound membership policy subset, commercial usage-event ownership, owner-only snapshots and reconciled stock-versus-period metrics. Full entitlements and broader quota workflows remain pending.
 
 Durable welcome continuation: [ADR 0006](architecture/adrs/0006-durable-welcome-operations.md) records V8 leased claims, fenced DB-only completion, bounded retries, authority checks, owner-scoped operation recovery and preserved event/message IDs. The existing workspace module remains the single owner; generic provider/import/storage jobs and production monitoring remain pending.
+
+Commercial review continuation: [ADR 0007](architecture/adrs/0007-commercial-plan-review.md) records V9 explicit expiring review authority, operator bootstrap, bounded audited version projections and private admin routes. This is a catalogue-owned read capability, not workspace authority or full plan administration.
+
+Unpublished draft continuation: [ADR 0008](architecture/adrs/0008-unpublished-plan-drafts.md) documents V10 explicit draft authority, inherited immutable commercial terms, actor/key recovery and per-plan version allocation. Public publication and subscriber transitions remain unavailable.
+
+Editorial publication continuation: [ADR 0009](architecture/adrs/0009-reviewed-editorial-publication.md) records V11 expiring exact-version reviews, explicit publication authority, ordered effective dates, atomic capability inheritance through the commercial module and preservation of historical subscription references.
+
+Editorial edit continuation: [ADR 0010](architecture/adrs/0010-editorial-draft-edits.md) records V12 independent edit authority, locked revision updates, immutable-runtime before/after evidence and invalidation of prior publication reviews.
+
+Draft discard continuation: [ADR 0011](architecture/adrs/0011-preserved-draft-discard.md) records V13 independent discard authority, a terminal immutable state, evidence-preserving command recovery and serialization against publication/editing.
+
+Offering availability continuation: [ADR 0012](architecture/adrs/0012-offering-availability.md) records V14 family-scoped withdrawal/restoration, independent authority and atomic command evidence, plus V15 availability-bound publication reviews. Published terms and subscriber references remain immutable.
+
+Private storage foundation: [ADR 0013](architecture/adrs/0013-private-upload-quarantine.md) records V16 account-owned intents/RLS, an immutable private object interface and a guarded local quarantine adapter. Actual upload bytes persist; scanning, clean release, expiring download grants and production S3 remain unavailable. This is a Phase 1 foundation, not completion of FS-21 or the Premium vault.
+
+Private storage recovery: [ADR 0014](architecture/adrs/0014-private-storage-recovery.md) records V17 subject-scoped integrity observations and immutable command results, strong review versions, exact-byte missing-file recovery and no-overwrite local file creation. Transfer receipts and quarantine remain independent of integrity and malware clearance; production storage/scan jobs/retrieval remain pending.
+
+Durable scan preparation: [ADR 0015](architecture/adrs/0015-durable-scan-preparation.md) records V18 queue/attempt/command ownership, V19 subject constraints, atomic quarantine enqueue, fenced prerequisite workers and bounded recovery. Actual scan clearance remains unavailable; the worker never writes a clean document state. Existing workspace workers remain independently owned.
+
+Entitlement layering continuation: [ADR 0016](architecture/adrs/0016-scoped-temporary-entitlement-overrides.md) records V20 independently scoped operator authority, expiring manager-onboarding overrides, immutable command evidence and membership-lock serialization. Existing Entitlements remains the sole evaluator; permissions, security restrictions and quota consumption remain separate.
+
+### Manager evidence reconciliation (2026-11-09)
+
+Commercial `ManagerUsageEvidence` supplies allocation/event integrity counts to both the owner usage projection and `ManagerCapacity.consume`. The usage projection remains owner-authorized and repeatable-read; consumption checks evidence under the existing grant row lock and membership transaction. The helper reads commercial-owned records only and does not expand member visibility for invitation recipients. Current sandbox reservations are transaction-local, so persisted reservations are flagged, not expired or repaired automatically. Existing membership audit and usage writes remain atomic; no new persistence owner or repair API is introduced. See DEC-034 and the release checkpoint for verification and pending scoped repair work.
+
+### Reviewed capacity counter recovery (2026-11-09)
+
+Commercial `CapacityRepairs` owns the bounded sandbox repair use case and V21 command evidence. Its scoped authority is distinct from entitlement administration and requires active workspace ownership; existing owner RLS supplies source access. Repairs serialize with membership operations and grant changes, validate source identity/event consistency, then atomically persist derived counters, repair revision, before/result and domain audit. No source records or allowance are rewritten. Read-only usage links to the authorized review screen. See ADR 0017 for policy and pending production/non-owner recovery.
+
+### Owner repair-history projection (2026-11-09)
+
+Commercial CapacityRepairHistory projects retained capacity_repair_command evidence through owner-authorized repeatable-read orchestration. V22 adds SELECT-only owner RLS and date/revision indexes without changing command INSERT authority. API cursors bind actor/workspace/date range; owner loss denies subsequent reads. Repair-grant revocation preserves owner historical access. UI displays minimal before/after evidence with independent loading/error/pagination state and request cancellation. See DEC-036 and the release checkpoint; general audit exports and production support remain pending.
+
+### Independent sandbox email identity (2026-11-09)
+
+V23 extends the existing identity-owned account/challenge schema for email-only accounts. The same Java challenge service, delivery worker and opaque session controls serve both channels; Next.js only submits typed proof requests. Email uniqueness handles concurrent proof consumption, domain normalization preserves local-part identity, and sandbox mode cannot authenticate live identities. Profile exposes nullable masked contacts. No linking/merge business engine or separate authentication backend was added. See ADR 0018 and DEC-037 for supported address policy and live-provider/linking prerequisites.
+
+### Explicit sandbox email linking (2026-11-09)
+
+Identity-owned EmailLinks/EmailLinkController extend the existing challenge and account/session modules. V24 adds purpose/account/profile bindings; Java owns recent-session checks, versioning, contact ownership locks, proof limits, atomic profile/command/audit/notice persistence and retry recovery. Public sign-in rejects linking proofs. Email sign-in creation and linking share contact locks, preventing concurrent ownership transfer. Next.js renders confirmations and forwards typed requests; no identity resolution is performed in the frontend. See ADR 0019 and DEC-038 for the narrow no-merge policy.
+
+### Shared bidirectional sandbox contact linking (2026-11-09)
+
+IdentityLinks and IdentityLinkController replace the email-specific class names while retaining the existing endpoints and persisted email operation identifiers. V25 adds link_mobile purpose/channel binding and the narrowly required mobile-column update grant. Both contact directions derive the writable column from an allowlisted channel and prohibit overwriting an existing contact. Mobile ownership races serialize with the established sign-in path. Workspace invitation discovery continues to derive from the now-proven contact; acceptance remains a separate authorized business command. Historical migrations/evidence are unchanged.
+
+### Bound session reauthentication continuation
+
+Identity-owned SessionReauthentication/ReauthenticationController and V26 reuse challenge delivery and durable sessions. `/account/reauthenticate` consumes OpenAPI 0.22.0 request/result contracts. Existing-contact proof refreshes recent authority, rotates the session/CSRF and preserves the absolute session cap. Audit/registry/proof/notice are transactional; servlet cookie rotation has explicit fail-closed recovery. See [ADR 0020](architecture/adrs/0020-bound-session-reauthentication.md).
+
+### Recipient-owned security notice review
+
+AccountControls owns the existing security notice read transition and exposes it through AccountController; V27 grants only read-state updates. The canonical `/me/notifications` projection reuses the legacy security-notifications store, actor-bound pagination and account RLS. NotificationInbox connects `/account/security` to generated OpenAPI 0.23.0 contracts. Strong preconditions, command locks, row locks and transactional audit preserve first-read evidence through retries/races. See [ADR 0021](architecture/adrs/0021-security-notice-read-state.md).
+
+### Reviewed session batch revocation
+
+AccountControls/AccountController coordinate selected-session preview and atomic confirmation using existing identity persistence. OpenAPI 0.24.0 supplies generated selection/preview/result contracts for `/account/security/selected`. Deterministic registry row locking, strong preview ETag, recent authentication and scoped command replay protect the transition; framework deletion, tombstones, audits and notice share one transaction. No schema/dependency change. See [ADR 0022](architecture/adrs/0022-reviewed-session-batch-revocation.md).
+
+### Linked-contact recovery and authentication generation
+
+ChallengeService and AccountControls retain identity ownership of recovery and session registration. V28 adds account generation/recovery cutoff and the dedicated challenge purpose. Generation locking/rechecks protect the verification-to-registration boundary; recovery atomically consumes proof, revokes framework/registry sessions and records audit/notice. Public Account payloads stay unchanged; internal VerifiedAccount carries generation. `/account/recovery` consumes generated OpenAPI 0.25.0 contracts and exposes honest session-check/fresh-sign-in recovery after uncertain cookie delivery. See [ADR 0023](architecture/adrs/0023-linked-contact-account-recovery.md).
+
+### Recovery outcome continuity
+
+V29 stores recovery completion evidence on the identity-owned challenge in the same transaction as recovery. OpenAPI 0.26.0 adds RecoveryChallenge read-grant fields and POST `/auth/recovery/outcome`; the public Account contract remains unchanged. Domain-separated HMAC grants are challenge/session-bound, short-lived and scoped to coarse no-store status, allowing recovery confirmation after cookie loss without conferring account access. See [ADR 0024](architecture/adrs/0024-protected-recovery-outcome.md).
+
+### Email workspace invitation continuation
+
+WorkspaceMembership/MembershipController retain ownership of invitations and membership transitions. V30 extends contact storage, recipient index and RLS; identity exposes its existing contact normalization function, while commercial ManagerCapacity remains the only quota writer. OpenAPI 0.27.0 extends the existing invitation request/response; membership screens render channel/masked destination and preserve explicit confirmation/acceptance. No second membership backend or new provider adapter. See [ADR 0025](architecture/adrs/0025-email-workspace-invitations.md).
+
+### Local container topology
+
+[ADR 0026](architecture/adrs/0026-local-compose-processes.md) defines the six-service local stack. [Compose runbook](../infra/compose/README.md) covers loopback ingress, runtime/migration credential separation, worker scheduling, persistent volumes, health and recovery. It preserves the native database-only setup; it is not production infrastructure.

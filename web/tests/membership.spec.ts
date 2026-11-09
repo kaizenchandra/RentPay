@@ -1,6 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {readFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
 import {randomInt} from 'node:crypto';
 import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
@@ -26,7 +27,7 @@ test('owner invites, recipient accepts and switches context, owner revokes acces
   await page.getByRole('button',{name:'Refresh lists'}).click();await expect(page.getByText(/1 of 1 manager slots used/)).toBeVisible();
   expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();await page.screenshot({path:testInfo.outputPath('members.png'),fullPage:true});
   await page.getByRole('link',{name:'Usage and eligibility',exact:true}).click();await expect(page.getByRole('heading',{name:'Usage and eligibility',exact:true})).toBeVisible();
-  await expect(page.getByText('Reconciled with membership, allocations and usage events.',{exact:true})).toBeVisible();await expect(page.getByText(/No manager slots remain/)).toBeVisible();
+  await expect(page.getByText('Reconciled with membership, allocations and usage events.',{exact:true})).toBeVisible();await page.getByText('Reconciliation evidence',{exact:true}).click();await expect(page.getByText('Active manager accounts',{exact:true})).toBeVisible();await expect(page.getByText('Unexplained reservations',{exact:true})).toBeVisible();await expect(page.getByText(/No manager slots remain/)).toBeVisible();
   schema('UsageSnapshot',await (await page.request.get('/api/v1/workspaces/'+w+'/entitlements')).json());schema('UsageHistory',await (await page.request.get('/api/v1/workspaces/'+w+'/usage/history')).json());
   await expect(page.getByText(/Usage, reservations and remaining capacity are unavailable/)).toBeVisible();await expect(page.getByRole('heading',{name:'Manager slot consumed',exact:true})).toBeVisible();
   expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();await page.screenshot({path:testInfo.outputPath('usage.png'),fullPage:true});
@@ -42,4 +43,21 @@ test('lost invitation response recovers one durable invitation',async({page})=>{
  await page.route('**/api/v1/workspaces/'+w+'/invitations',async route=>{if(route.request().method()==='POST'&&lose){lose=false;const response=await route.fetch();expect(response.status()).toBe(201);await route.abort('failed');}else await route.continue();});
  await page.getByLabel('Manager mobile number').fill('+919'+randomInt(100000000,999999999));await page.getByRole('button',{name:'Review invitation'}).click();await page.getByRole('button',{name:'Confirm action'}).click();await expect(page.getByRole('button',{name:'Retry same action'})).toBeVisible();await page.getByRole('button',{name:'Retry same action'}).click();await expect(page.getByText(/Invitation saved in the recipient/)).toBeVisible();
  expect((await (await page.request.get('/api/v1/workspaces/'+w+'/invitations')).json()).totalMatching).toBe(1);
+});
+
+test('owner can inspect stranded reservation evidence and refresh after external recovery',async({page})=>{
+ await signIn(page,'+919'+randomInt(100000000,999999999),'Reconciliation Owner');const w=await provision(page);
+ expect(w).toMatch(/^[0-9a-f-]{36}$/);
+ // Isolated test workspace only: deliberately inject drift with the local migration role.
+ const reserved=(n:number)=>execFileSync('docker',['compose','exec','-T','db','psql','-U','lmt_migrate','-d','lmt','-v','ON_ERROR_STOP=1','-c',"UPDATE workspace_grant SET reserved="+n+" WHERE workspace_id='"+w+"' AND resource='managers'"],{cwd:'..',stdio:'pipe'});
+ try{
+  reserved(1);await page.goto('/workspace/billing/usage?workspace='+w);
+  await expect(page.getByText('Unavailable — reconciliation required',{exact:true})).toBeVisible();
+  const response=await page.request.get('/api/v1/workspaces/'+w+'/usage');schema('UsageSnapshot',await response.json());expect(response.headers()['cache-control']).toContain('no-store');
+  await page.getByText('Reconciliation evidence',{exact:true}).click();
+  await expect(page.getByText('Unexplained reservations',{exact:true}).locator('..')).toContainText('1');
+  await expect(page.getByText(/Counter repair requires separate scoped authority/)).toBeVisible();
+  expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  reserved(0);await page.getByRole('button',{name:'Refresh usage'}).click();await expect(page.getByText('Reconciled with membership, allocations and usage events.',{exact:true})).toBeVisible();
+ }finally{reserved(0);}
 });

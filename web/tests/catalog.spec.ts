@@ -27,3 +27,26 @@ test('keyboard skip link and version disclosure work', async ({page}) => {
   await page.keyboard.press('Enter');
   await expect(page.getByText(/Version \d+\. Effective/).first()).toBeVisible();
 });
+
+test('personal catalogue keeps audience and interval without inventing offers', async ({page, request}) => {
+  const response = await request.get('/api/v1/public/plans?audience=consumer&interval=annual');
+  expect(response.ok()).toBeTruthy();
+  expect((await response.json()).items).toEqual([]);
+  await page.goto('/pricing?interval=annual');
+  await page.getByRole('link', {name: 'Personal memberships', exact: true}).click();
+  await expect(page).toHaveURL(/audience=consumer&interval=annual/);
+  await expect(page.getByRole('heading', {name: 'Your personal membership.'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'No published plans'})).toBeVisible();
+  await expect(page.getByRole('article')).toHaveCount(0);
+  await expect(page.getByRole('link', {name: 'Try Free workspace setup'})).toHaveCount(0);
+  const monthly=page.getByRole('link', {name: 'Monthly', exact: true});
+  await monthly.focus(); await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/audience=consumer&interval=monthly/);
+  await expect(page.getByRole('link', {name: 'Personal memberships', exact: true})).toHaveAttribute('aria-current', 'page');
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  await page.getByRole('navigation', {name: 'Plan audience'}).getByRole('link', {name: 'Workspace plans', exact: true}).click();
+  await expect(page).toHaveURL(/audience=workspace&interval=monthly/);
+  await expect(page.getByRole('article')).toHaveCount(5);
+});

@@ -70,13 +70,28 @@ class CatalogIntegrationTest {
         }
     }
 
+    @Test @Order(10) void audienceIsolationAppliesToListAndDetail() throws Exception {
+        sql("INSERT INTO plan_version SELECT '10000000-0000-4000-8000-000000000004', 'consumer', code, 1, 'Personal test offering', 'published', '2020-01-01', true, NULL, NULL, 12.50, 125.00, currency, commercial_disclosure FROM plan_version WHERE code='FREE' AND version_number=1");
+        var consumer=json(get("/api/v1/public/plans?audience=consumer&interval=annual"));
+        assertThat(consumer.get("items").size()).isEqualTo(1);
+        assertThat(consumer.get("items").get(0).get("name").asString()).isEqualTo("Personal test offering");
+        var detail=json(get("/api/v1/public/plans/FREE?audience=consumer&interval=annual"));
+        assertThat(detail.get("amount").asString()).isEqualTo("125.00");
+        assertThat(detail.get("rentableLimit").isNull()).isTrue();
+        assertThat(get("/api/v1/public/plans?audience=workspace").body()).doesNotContain("Personal test offering");
+        assertThat(json(get("/api/v1/public/plans/FREE?audience=workspace")).get("amount").asString()).isEqualTo("0.00");
+        assertThat(get("/api/v1/public/plans/SILVER?audience=consumer").statusCode()).isEqualTo(404);
+    }
+
     @Test @Order(1) void publishedTermsAreImmutableAndRuntimeCannotWrite() throws Exception {
         assertThatThrownBy(() -> sql("UPDATE plan_version SET monthly_amount=5 WHERE code='FREE' AND version_number=1"))
             .isInstanceOf(SQLException.class).hasMessageContaining("immutable");
         assertThatThrownBy(() -> sql("DELETE FROM plan_version WHERE code='SILVER'"))
             .isInstanceOf(SQLException.class).hasMessageContaining("immutable");
         try(var c=DriverManager.getConnection(db.getJdbcUrl(),"lmt_runtime","runtime_test");var s=c.createStatement()) {
-            assertThatThrownBy(() -> s.execute("UPDATE plan_version SET display_name='changed'"))
+            assertThatThrownBy(() -> s.execute("INSERT INTO plan_version SELECT gen_random_uuid(),audience,'FORGED_PLAN',1,display_name,'published','2090-01-01',baseline_only,rentable_limit,manager_limit,monthly_amount,annual_amount,currency,commercial_disclosure FROM plan_version WHERE code='FREE' AND version_number=1"))
+                .isInstanceOf(SQLException.class).hasMessageContaining("Runtime can only insert draft");
+            assertThatThrownBy(() -> s.execute("UPDATE plan_version SET monthly_amount=5"))
                 .isInstanceOf(SQLException.class).hasMessageContaining("permission denied");
         }
         try(var c=DriverManager.getConnection(db.getJdbcUrl(),db.getUsername(),db.getPassword());var s=c.createStatement();var rs=s.executeQuery("SELECT count(*) FROM catalog_audit")) {

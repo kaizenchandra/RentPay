@@ -41,7 +41,8 @@ class OperationsIntegrationTest {
   try(var pool=Executors.newFixedThreadPool(2)){var a=pool.submit(()->operations.claim());var c=pool.submit(()->operations.claim());claims.addAll(a.get());claims.addAll(c.get());}
   assertThat(claims).hasSize(1);operations.complete(claims.getFirst());operations.complete(claims.getFirst());
   assertThat(b.get("/operations/"+id).get("operation").get("status").asString()).isEqualTo("delivered");assertThat(count("SELECT count(*) FROM workspace_notification WHERE event_id='"+id+"'")).isEqualTo(1);
-  assertThat(other.send("/operations/"+id,null,null,null).statusCode()).isEqualTo(404);
+  var foreign=other.send("/operations/"+id,null,null,null);assertThat(foreign.statusCode()).isEqualTo(404);assertThat(json.readTree(foreign.body()).get("code").asString()).isEqualTo("OPERATION_NOT_FOUND");
+  assertThat(json.readTree(other.send("/operations/"+UUID.randomUUID(),null,null,null).body()).get("code").asString()).isEqualTo("OPERATION_NOT_FOUND");
   assertThat(b.send("/operations/"+id+"/cancel-request","{\"reason\":\"Cancel completed delivery\"}",UUID.randomUUID().toString(),etag(b,id)).statusCode()).isEqualTo(409);
  }
  @Test void expiredLeaseAndRevokedAuthorityRequireExplicitRecovery()throws Exception{

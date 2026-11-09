@@ -29,7 +29,7 @@ public class WelcomeOperations {
   UUID id=r.getObject("event_id",UUID.class);int v=r.getInt("version");return new Operation(id,r.getObject("scope_id",UUID.class),r.getString("event_type"),r.getString("status"),r.getInt("attempts"),r.getInt("cycle_attempts"),5,v,tag(id,v),time(r,"occurred_at"),time(r,"updated_at"),time(r,"next_attempt_at"),time(r,"lease_until"),r.getString("last_code"));
  }
  private Operation find(UUID id){return db.sql("SELECT * FROM workspace_outbox WHERE event_id=:id").param("id",id).query((r,n)->projection(r)).optional().orElseThrow(()->new ApiProblem(404,"OPERATION_NOT_FOUND","Operation is unavailable."));}
- private void authorize(UUID actor,UUID id){var row=find(id);authority.requireOwner(row.workspaceId(),actor);}
+ private void authorize(UUID actor,UUID id){try{var row=find(id);authority.requireOwner(row.workspaceId(),actor);}catch(ApiProblem e){if(e.status==404)throw new ApiProblem(404,"OPERATION_NOT_FOUND","Operation is unavailable.");throw e;}}
  @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
  public Detail detail(UUID actor,UUID id){authorize(actor,id);var op=find(id);var attempts=db.sql("SELECT * FROM operation_attempt WHERE event_id=:id ORDER BY attempt DESC LIMIT 20").param("id",id).query((r,n)->new Attempt(r.getInt("attempt"),time(r,"started_at"),time(r,"finished_at"),r.getString("outcome"))).list();return new Detail(op,attempts);}
  @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
