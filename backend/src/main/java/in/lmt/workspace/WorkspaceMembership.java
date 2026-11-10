@@ -16,14 +16,15 @@ import tools.jackson.databind.ObjectMapper;
 @Transactional
 public class WorkspaceMembership {
  private final JdbcClient db; private final WorkspaceCommands authority; private final ManagerCapacity capacity; private final in.lmt.commercial.Entitlements entitlements;
+ private final in.lmt.identity.WorkspaceAccessNotices notices;
  private final Audit audit; private final ObjectMapper json; private final int lifetime;
- public WorkspaceMembership(JdbcClient db,WorkspaceCommands authority,ManagerCapacity capacity,in.lmt.commercial.Entitlements entitlements,Audit audit,ObjectMapper json,
+ public WorkspaceMembership(JdbcClient db,WorkspaceCommands authority,ManagerCapacity capacity,in.lmt.commercial.Entitlements entitlements,Audit audit,ObjectMapper json,in.lmt.identity.WorkspaceAccessNotices notices,
    @Value("${lmt.workspace.invitation-hours:168}") int lifetime){
-  this.db=db;this.authority=authority;this.capacity=capacity;this.entitlements=entitlements;this.audit=audit;this.json=json;
+  this.notices=notices;this.db=db;this.authority=authority;this.capacity=capacity;this.entitlements=entitlements;this.audit=audit;this.json=json;
   if(lifetime<1||lifetime>720)throw new IllegalArgumentException("Invitation lifetime must be 1–720 hours");this.lifetime=lifetime;
  }
  public record Member(UUID id,String displayName,String role,boolean active,int version,String etag,Instant joinedAt){}
- public record Invitation(UUID id,UUID workspaceId,String workspaceName,String maskedMobile,String channel,String maskedDestination,String role,String scope,String status,Instant expiresAt,int version,String etag){}
+ public record Invitation(UUID id,UUID workspaceId,String workspaceName,String maskedMobile,String channel,String maskedDestination,String role,String scope,String status,Instant expiresAt,int version,String etag,UUID replacesInvitationId){}
  public record Page(int limit,String nextCursor){}
  public record Invitations(List<Invitation> items,Page page,int totalMatching,Instant asOf){}
  public record Members(List<Member> items,Page page,int totalMatching,Instant asOf,String workspaceName,int managerAllowance,int managersUsed,int invitationHours){}
@@ -61,7 +62,7 @@ public class WorkspaceMembership {
   UUID id=r.getObject("id",UUID.class);int v=r.getInt("version");String mobile=r.getString("mobile"),email=r.getString("email");String masked=mobile==null?ChallengeService.maskEmail(email):"+91••••••"+mobile.substring(mobile.length()-4);String status=r.getString("status");
   if(status.equals("accepted")&&!r.getBoolean("membership_active"))status="access_revoked";
   if(status.equals("pending")&&!r.getTimestamp("expires_at").toInstant().isAfter(Instant.now()))status="expired";
-  return new Invitation(id,r.getObject("workspace_id",UUID.class),r.getString("workspace_name"),mobile==null?null:masked,mobile==null?"email":"mobile",masked,"MANAGER","membership_only",status,r.getTimestamp("expires_at").toInstant(),v,etag("invitation",id,v));
+  return new Invitation(id,r.getObject("workspace_id",UUID.class),r.getString("workspace_name"),mobile==null?null:masked,mobile==null?"email":"mobile",masked,"MANAGER","membership_only",status,r.getTimestamp("expires_at").toInstant(),v,etag("invitation",id,v),r.getObject("replaces_invitation_id",UUID.class));
  }
  public Context context(UUID actor,UUID w){
   authority.scope(actor);
@@ -102,13 +103,17 @@ public class WorkspaceMembership {
   try{contact=ChallengeService.normalize(channel,mobile==null?email:mobile);}catch(ApiProblem invalid){throw new ApiProblem(422,"INVALID_CONTACT","Enter a supported contact for this invitation.",channel);}
   lock(actor,w);String name=openWorkspace(actor,w);String hash=ChallengeService.hash(channel.equals("mobile")?contact:"email:"+contact);
   var prior=replay(actor,w,"workspace.invited",key,hash);if(prior.isPresent())return prior.get();
+  UUID id=createInvitation(actor,w,name,contact,channel);
+  return record(actor,w,"workspace.invited",key,hash,id,"invited");
+ }
+ private UUID createInvitation(UUID actor,UUID w,String name,String contact,String channel){
   boolean member=db.sql("SELECT EXISTS(SELECT 1 FROM workspace_member m JOIN user_account u ON u.id=m.account_id WHERE m.workspace_id=:w AND m.active AND u."+channel+"=:contact)").param("w",w).param("contact",contact).query(Boolean.class).single();
   if(member)throw new ApiProblem(409,"ALREADY_MEMBER","This contact already has active workspace membership.");
   boolean pending=db.sql("SELECT EXISTS(SELECT 1 FROM workspace_invitation WHERE workspace_id=:w AND "+channel+"=:contact AND status='pending' AND expires_at>CURRENT_TIMESTAMP)").param("w",w).param("contact",contact).query(Boolean.class).single();
   if(pending)throw new ApiProblem(409,"INVITATION_PENDING","An unexpired invitation already exists for this contact.");
   UUID id=UUID.randomUUID();db.sql("INSERT INTO workspace_invitation(id,workspace_id,workspace_name,invited_by,mobile,email,expires_at) VALUES(:id,:w,:name,:a,:mobile,:email,CURRENT_TIMESTAMP+(:hours * interval '1 hour'))")
    .param("id",id).param("w",w).param("name",name).param("a",actor).param("mobile",channel.equals("mobile")?contact:null,java.sql.Types.VARCHAR).param("email",channel.equals("email")?contact:null,java.sql.Types.VARCHAR).param("hours",lifetime).update();
-  return record(actor,w,"workspace.invited",key,hash,id,"invited");
+  return id;
  }
  private Map<String,Object> recipient(UUID actor,UUID id){
   authority.scope(actor);
@@ -142,7 +147,33 @@ public class WorkspaceMembership {
   }
   db.sql("UPDATE workspace_invitation SET status=:s,accepted_by=:a,version=version+1 WHERE id=:id")
    .param("s",accept?"accepted":"declined").param("a",accept?actor:null,java.sql.Types.OTHER).param("id",id).update();
+  if(accept)notices.record(actor,actor,w,id,(String)row.get("workspace_name"),true);
+  UUID inviter=(UUID)row.get("invited_by");
+  if(db.sql("SELECT lmt_is_workspace_owner(:w,:a)").param("w",w).param("a",inviter).query(Boolean.class).single())
+   notices.invitationOutcome(actor,inviter,w,id,(String)row.get("workspace_name"),accept);
+  else audit.record(actor,w,"notification.invitation_outcome_suppressed",id);
   return record(actor,w,op,key,hash,id,accept?"accepted":"declined");
+ }
+ public record ExpiryStatus(UUID workspaceId,long totalInvitations,long openInvitations,long awaitingExpiry,long recordedExpired,Instant oldestOverdueAt,long oldestOverdueSeconds,Instant asOf){}
+ @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+ public ExpiryStatus expiryStatus(UUID actor,UUID w){
+  authority.requireOwner(w,actor);
+  Instant asOf=db.sql("SELECT clock_timestamp()").query(java.time.OffsetDateTime.class).single().toInstant();
+  return db.sql("SELECT count(*) AS total,count(*) FILTER(WHERE status='pending' AND expires_at>:asOf) AS open,count(*) FILTER(WHERE status='pending' AND expires_at<=:asOf) AS due,count(*) FILTER(WHERE status='expired') AS recorded,min(expires_at) FILTER(WHERE status='pending' AND expires_at<=:asOf) AS oldest FROM workspace_invitation WHERE workspace_id=:w")
+   .param("w",w).param("asOf",java.sql.Timestamp.from(asOf)).query((r,n)->{var timestamp=r.getTimestamp("oldest");Instant oldest=timestamp==null?null:timestamp.toInstant();return new ExpiryStatus(w,r.getLong("total"),r.getLong("open"),r.getLong("due"),r.getLong("recorded"),oldest,oldest==null?0:Math.max(0,java.time.Duration.between(oldest,asOf).getSeconds()),asOf);}).single();
+ }
+ public Outcome replaceExpired(UUID actor,UUID w,UUID id,UUID key,String expected){
+  lock(actor,w);authority.requireOwner(w,actor);String hash=ChallengeService.hash(id+":"+expected);
+  var prior=replay(actor,w,"workspace.invitation_replaced",key,hash);if(prior.isPresent())return prior.get();
+  String name=openWorkspace(actor,w);
+  var row=db.sql("SELECT * FROM workspace_invitation WHERE workspace_id=:w AND id=:id FOR UPDATE").param("w",w).param("id",id).query().listOfRows().stream().findFirst().orElseThrow(()->new ApiProblem(404,"INVITATION_NOT_FOUND","Invitation is unavailable."));
+  match(expected,etag("invitation",id,((Number)row.get("version")).intValue()));
+  if(!Set.of("pending","expired").contains(row.get("status"))||((java.sql.Timestamp)row.get("expires_at")).toInstant().isAfter(Instant.now()))throw new ApiProblem(409,"INVITATION_NOT_EXPIRED","Only an expired invitation can be replaced. Refresh the invitation list.");
+  if(db.sql("SELECT EXISTS(SELECT 1 FROM workspace_invitation WHERE replaces_invitation_id=:id)").param("id",id).query(Boolean.class).single())throw new ApiProblem(409,"INVITATION_ALREADY_REPLACED","This invitation already has a replacement. Refresh the list and review that invitation.");
+  String mobile=(String)row.get("mobile"),email=(String)row.get("email");
+  UUID created=createInvitation(actor,w,name,mobile==null?email:mobile,mobile==null?"email":"mobile");
+  db.sql("UPDATE workspace_invitation SET replaces_invitation_id=:old WHERE id=:id AND workspace_id=:w").param("old",id).param("id",created).param("w",w).update();
+  return record(actor,w,"workspace.invitation_replaced",key,hash,created,"invited");
  }
  public Outcome revokeInvite(UUID actor,UUID w,UUID id,UUID key,String expected){
   lock(actor,w);authority.requireOwner(w,actor);String hash=ChallengeService.hash(id+":"+expected);
@@ -162,6 +193,9 @@ public class WorkspaceMembership {
   if(!(Boolean)row.get("active"))throw new ApiProblem(409,"MEMBERSHIP_UNAVAILABLE","Membership is already inactive.");
   capacity.release(w,id);
   db.sql("UPDATE workspace_member SET active=false,version=version+1 WHERE id=:id").param("id",id).update();
+  String name=db.sql("SELECT name FROM workspace WHERE id=:w").param("w",w).query(String.class).single();
+  UUID event=UUID.nameUUIDFromBytes(("workspace.member_revoked:"+id+":"+row.get("version")).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  notices.record(actor,(UUID)row.get("account_id"),w,event,name,false);
   return record(actor,w,"workspace.member_revoked",key,hash,id,"revoked");
  }
 }

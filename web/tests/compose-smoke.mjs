@@ -1,3 +1,4 @@
+import {containerCode} from './container-code.mjs';
 // Explicit local sandbox smoke test. Run after scripts/compose-local.sh up -d --wait.
 import {chromium, expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
@@ -17,7 +18,7 @@ try {
  const id=new URL(page.url()).searchParams.get('challenge');
  if(!/^[0-9a-f-]{36}$/.test(id))throw Error('Invalid challenge reference');
  let code='';
- await expect.poll(()=>{try {code=compose('exec','-T','worker','cat','/data/otp-inbox/'+id+'.txt');return code.length;}catch{return 0;}},{timeout:30000}).toBe(6);
+ await expect.poll(async()=>{try {code=await containerCode(id);return code.length;}catch{return 0;}},{timeout:30000}).toBe(6);
  await page.getByLabel('Six-digit verification code').fill(code);
  await page.getByRole('button',{name:'Verify and continue'}).click();
  await expect(page.getByRole('heading',{name:'Your workspaces',exact:true})).toBeVisible();

@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.*;
 /** Private commercial projections; caller establishes owner scope and a snapshot transaction. */
 @Service @Transactional(propagation=Propagation.MANDATORY)
 public class UsageQueries {
- private final JdbcClient db;private final Entitlements entitlements;private final ManagerUsageEvidence evidence;
- public UsageQueries(JdbcClient db,Entitlements entitlements,ManagerUsageEvidence evidence){this.db=db;this.entitlements=entitlements;this.evidence=evidence;}
- public record Quota(String resource,int allowance,Integer used,Integer reserved,Integer remaining,boolean available,Boolean reconciled,String definition,Reconciliation evidence){}
+ private final RentableCapacity capacity;private final JdbcClient db;private final Entitlements entitlements;private final ManagerUsageEvidence evidence;
+ public UsageQueries(JdbcClient db,Entitlements entitlements,ManagerUsageEvidence evidence,RentableCapacity capacity){this.capacity=capacity;this.db=db;this.entitlements=entitlements;this.evidence=evidence;}
+ public record Quota(String resource,int allowance,Integer used,Integer reserved,Integer remaining,int excess,boolean available,Boolean reconciled,String definition,Reconciliation evidence){}
  public record Reconciliation(long activeManagers,long committedAllocations,long eventBalance,long inconsistentAllocations,long unmatchedEvents,int unexplainedReservations){}
  public record Snapshot(UUID workspaceId,String workspaceName,UUID planVersionId,String planName,String workspaceStatus,String subscriptionStatus,List<Entitlements.Decision> capabilities,List<Quota> quotas,Instant asOf,String coverage){}
  public record Event(UUID id,UUID allocationId,String kind,int quantity,Instant occurredAt){}
@@ -22,13 +22,14 @@ public class UsageQueries {
   var row=db.sql("SELECT w.name,w.status,s.status AS subscription_status,s.plan_version_id,p.display_name FROM workspace w JOIN workspace_subscription s ON s.workspace_id=w.id JOIN plan_version p ON p.version_id=s.plan_version_id WHERE w.id=:w").param("w",w).query().singleRow();
   var records=evidence.read(w);
   long managers=db.sql("SELECT count(*) FROM workspace_member WHERE workspace_id=:w AND active AND role='MANAGER'").param("w",w).query(Long.class).single();
+  var rentableStatus=capacity.status(w);
   var quotas=db.sql("SELECT resource,allowance,used,reserved FROM workspace_grant WHERE workspace_id=:w ORDER BY resource").param("w",w).query((r,n)->{
-   String resource=r.getString("resource");int allowance=r.getInt("allowance"),used=r.getInt("used"),reserved=r.getInt("reserved");boolean available=resource.equals("managers");boolean reconciled=available&&records.matches(used,reserved)&&used==managers;
-   return new Quota(resource,allowance,available?used:null,available?reserved:null,reconciled?allowance-used-reserved:null,available,available?reconciled:null,
-    available?"Current active MANAGER accounts per workspace. Owners and pending invitations excluded. No monthly reset; acceptance reserves and consumes atomically.":"Rentable-item measurement is not implemented. This is the configured allowance, not measured inventory usage.",
-    available?new Reconciliation(managers,records.committedAllocations(),records.eventBalance(),records.inconsistentAllocations(),records.unmatchedEvents(),reserved):null);
+   String resource=r.getString("resource");int allowance=r.getInt("allowance"),used=r.getInt("used"),reserved=r.getInt("reserved");boolean manager=resource.equals("managers"),rentable=resource.equals("rentable_items"),available=manager||rentable;boolean reconciled=manager?records.matches(used,reserved)&&used==managers:rentable&&!rentableStatus.status().equals("RECONCILIATION_REQUIRED");
+   return new Quota(resource,allowance,available?used:null,available?reserved:null,reconciled?Math.max(0,allowance-used-reserved):null,Math.max(0,used+reserved-allowance),available,available?reconciled:null,
+    manager?"Current active MANAGER accounts per workspace. Owners and pending invitations excluded. No monthly reset; acceptance reserves and consumes atomically.":rentableStatus.definition(),
+    manager?new Reconciliation(managers,records.committedAllocations(),records.eventBalance(),records.inconsistentAllocations(),records.unmatchedEvents(),reserved):null);
   }).list();
-  return new Snapshot(w,(String)row.get("name"),(UUID)row.get("plan_version_id"),(String)row.get("display_name"),(String)row.get("status"),(String)row.get("subscription_status"),entitlements.evaluate(w),quotas,Instant.now(),"Sandbox membership only. Scoped temporary manager-onboarding overrides are supported. Add-ons, paid billing, other grants and rental capability evaluation remain unavailable. Eligibility never establishes resource permission.");
+  return new Snapshot(w,(String)row.get("name"),(UUID)row.get("plan_version_id"),(String)row.get("display_name"),(String)row.get("status"),(String)row.get("subscription_status"),entitlements.evaluate(w),quotas,Instant.now(),"Sandbox membership and property setup capacity. Central evaluation combines plan bindings, active local add-on/time-limited inputs and commercial overrides before restriction and operational-availability gates. Local add-on inputs are not live purchases; renewal billing remains unavailable. Eligibility never establishes resource permission.");
  }
  public History history(UUID actor,UUID w,LocalDate from,LocalDate to,String cursor){
   LocalDate today=LocalDate.now(ZoneId.of("Asia/Kolkata"));if(to==null)to=today;if(from==null)from=to.minusDays(29);

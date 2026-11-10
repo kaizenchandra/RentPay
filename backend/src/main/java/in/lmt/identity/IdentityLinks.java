@@ -12,6 +12,7 @@ public class IdentityLinks {
  private final JdbcClient db;private final ChallengeService challenges;private final AccountControls accounts;private final IdentityConfig config;private final Audit audit;private final ObjectMapper json;private final long recentSeconds;
  public IdentityLinks(JdbcClient db,ChallengeService challenges,AccountControls accounts,IdentityConfig config,Audit audit,ObjectMapper json,@org.springframework.beans.factory.annotation.Value("${lmt.security.reauthentication-seconds:300}")long recentSeconds){this.db=db;this.challenges=challenges;this.accounts=accounts;this.config=config;this.audit=audit;this.json=json;this.recentSeconds=recentSeconds;}
  private void authorize(UUID actor,String session){
+  lock("account-session-generation:"+actor);
   if(!config.sandbox)throw new ApiProblem(503,"IDENTITY_UNAVAILABLE","Contact linking is available only in the local sandbox.");
   db.sql("SELECT set_config('lmt.account_id',:a,true)").param("a",actor.toString()).query().singleRow();
   if(db.sql("SELECT id FROM account_session WHERE account_id=:a AND token_hash=:h AND revoked_at IS NULL AND authenticated_at>clock_timestamp()-(:seconds * interval '1 second') FOR SHARE").param("a",actor).param("h",ChallengeService.hash(session)).param("seconds",recentSeconds).query().listOfRows().isEmpty())throw new ApiProblem(403,"REAUTHENTICATION_REQUIRED","Sign in again before linking a contact.");
@@ -45,5 +46,34 @@ public class IdentityLinks {
   db.sql("UPDATE user_account SET "+channel+"=:contact,version=version+1 WHERE id=:a").param("contact",selector).param("a",actor).update();var result=accounts.profile(actor);
   db.sql("INSERT INTO identity_command(actor_id,operation,request_key,request_hash,result) VALUES(:a,:operation,:k,:h,CAST(:r AS jsonb))").param("a",actor).param("operation",operation).param("k",key).param("h",fingerprint).param("r",json.writeValueAsString(result)).update();
   audit.record(actor,null,operation,challenge);db.sql("INSERT INTO account_notification(id,account_id,message) VALUES(:id,:a,:message)").param("id",UUID.randomUUID()).param("a",actor).param("message","A"+(channel.equals("email")?"n email":" mobile")+" sign-in contact was linked to your account. Review account security if this was unexpected.").update();return result;
+ }
+
+ @Transactional public AccountControls.Profile unlink(UUID actor,String session,UUID key,String expected,String channel){
+  if(!Set.of("email","mobile").contains(channel))throw new ApiProblem(422,"VALIDATION_FAILED","Choose email or mobile.","channel");
+  authorize(actor,session);
+  lock("account-session-generation:"+actor);
+  lock("identity-unlink-command:"+actor+":"+key);
+  String operation="identity.contact_unlinked", fingerprint=ChallengeService.hash(channel+":"+expected);
+  var prior=db.sql("SELECT request_hash,result::text FROM identity_command WHERE actor_id=:a AND operation=:o AND request_key=:k").param("a",actor).param("o",operation).param("k",key).query().listOfRows();
+  if(!prior.isEmpty()){
+   if(!fingerprint.equals(prior.getFirst().get("request_hash")))throw new ApiProblem(409,"IDEMPOTENCY_CONFLICT","This key belongs to another contact removal.");
+   return json.readValue((String)prior.getFirst().get("result"),AccountControls.Profile.class);
+  }
+  var current=db.sql("SELECT * FROM account_session WHERE account_id=:a AND token_hash=:h AND revoked_at IS NULL FOR UPDATE").param("a",actor).param("h",ChallengeService.hash(session)).query().singleRow();
+  var a=db.sql("SELECT * FROM user_account WHERE id=:a FOR UPDATE").param("a",actor).query().singleRow();
+  if(expected==null||expected.isBlank())throw new ApiProblem(428,"PRECONDITION_REQUIRED","Review your profile before removing a contact.");
+  if(!expected.equals("\"profile-"+actor+"-v"+a.get("version")+"\""))throw new ApiProblem(412,"VERSION_STALE","Your profile changed. Reload and verify the retained contact again.");
+  String retained=channel.equals("email")?"mobile":"email";
+  if(a.get(channel)==null||a.get(retained)==null)throw new ApiProblem(409,"CONTACT_REMOVAL_UNAVAILABLE","Both contacts must be linked. Your last sign-in contact cannot be removed.");
+  if(!retained.equals(current.get("proof_channel"))||!a.get("version").equals(current.get("proof_profile_version")))throw new ApiProblem(403,"REAUTHENTICATION_REQUIRED","Verify your current session using the contact you will keep, then return here.");
+  // Fence outstanding sign-ins and invalidate proofs targeting the removed destination.
+  db.sql("UPDATE auth_challenge SET consumed=true WHERE NOT consumed AND (link_account_id=:a OR mobile=:mobile OR email=:email)").param("a",actor).param("mobile",a.get("mobile")).param("email",a.get("email")).update();
+  db.sql("UPDATE user_account SET "+channel+"=NULL,version=version+1,auth_generation=auth_generation+1,auth_recovered_at=clock_timestamp() WHERE id=:a").param("a",actor).update();
+  db.sql("UPDATE account_session SET revoked_at=clock_timestamp(),version=version+1 WHERE account_id=:a AND id<>:id AND revoked_at IS NULL").param("a",actor).param("id",current.get("id")).update();
+  var result=accounts.profile(actor);
+  db.sql("INSERT INTO identity_command(actor_id,operation,request_key,request_hash,result) VALUES(:a,:o,:k,:h,CAST(:r AS jsonb))").param("a",actor).param("o",operation).param("k",key).param("h",fingerprint).param("r",json.writeValueAsString(result)).update();
+  audit.record(actor,null,operation,actor);
+  db.sql("INSERT INTO account_notification(id,account_id,message) VALUES(:id,:a,:message)").param("id",UUID.randomUUID()).param("a",actor).param("message","Your "+channel+" sign-in contact was removed and other browser sessions were revoked. Review security if this was unexpected.").update();
+  return result;
  }
 }

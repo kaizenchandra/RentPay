@@ -1,0 +1,15 @@
+# ADR 0047: Contextual unit limits and reconciled capacity changes
+
+Accepted 2026-11-10. SAAS-QUOTA-001; FS-05, FS-32.
+
+Retain the versioned catalogue defaults (5/50/200/1,000; Diamond requires a contract). Runtime decisions use the subscribed workspace grant, never a plan-name switch. Whole nonarchived units, including drafts, count under the existing development policy; building/floor containers do not. Shared inventory remains unavailable without configured counting rules.
+
+Creation and restoration acquire the existing workspace command locks and grant row lock, reconcile inventory against allocations, per-allocation/net usage evidence and counters, then atomically consume capacity. Archive releases a committed allocation and records the negative event in the same transaction. Property state, counter, allocation, usage event, audit and idempotency result commit together. No public counter mutation endpoint is introduced. Failed transactions do not strand reservations. V48 adds workspace-qualified foreign keys for allocation/resource/event relationships without rewriting prior migrations or evidence.
+
+The existing private effective snapshot now provides owner-assessed remaining rentable capacity, counting-policy version/definition and AVAILABLE / NEAR_LIMIT / AT_LIMIT / OVER_LIMIT / RECONCILIATION_REQUIRED status. Near-limit is an 80% UX warning, not a commercial quota. Non-owner reconciliation is NOT_ASSESSED because property records have owner-scoped RLS; no false zero/remaining value is inferred from filtered inventory. Usage reports use the same reconciliation. Snapshot authorization, no-store and refresh behavior remain per ADR 0046.
+
+Property screens show usage/reservations, warnings and scoped usage navigation. Counted creation/restoration review is disabled at capacity; non-counted containers, edits and reviewed archives retain separate rules. Server validation still handles stale browser state and simultaneous requests. Drafts survive snapshot updates. Over-limit state does not delete data.
+
+FS-32 bulk import is **pending**, with BULK_IMPORT operationally unavailable and no import mutation endpoint. Do not label import enforcement complete. Its future worker must call the same authoritative property/capacity operation, reauthorize at execution, persist per-source outcomes and use reservation/expiry/recovery contracts before import is enabled. Shared counting approval, live Diamond contracts and production reconciliation tooling are separate outstanding decisions. Inconsistency requires reviewed operator recovery; no automated rewriting of evidence is added here.
+
+Evidence: PostgreSQL create/create and create/restore last-slot races, rollback/replay, corruption denial/retry, over-limit archive preservation; real-browser 4/5 warning, 5/5 lock, non-counted container availability, backend sixth-unit rejection, draft retention and archive recovery. Full operational capacity/performance and manual screen-reader evaluation remain separate gates.

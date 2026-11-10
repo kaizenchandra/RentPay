@@ -19,4 +19,14 @@ class IdentityConfigurationTest {
   env.setActiveProfiles("production");
   assertThatThrownBy(()->new IdentityConfig(env,"sandbox","x".repeat(32),"/data/otp-inbox","http://localhost:3100","0.0.0.0")).isInstanceOf(IllegalStateException.class);
  }
+ @Test void localInboxContainersCannotBeEnabledForLiveIdentity(){
+  var env=new MockEnvironment().withProperty("lmt.identity.local-containers","true").withProperty("lmt.identity.hourly-limit","20");env.setActiveProfiles("live");
+  assertThatThrownBy(()->new IdentityConfig(env,"live","x".repeat(40),"","https://localhost","")).isInstanceOf(IllegalStateException.class).hasMessageContaining("Local inbox containers require sandbox");
+ }
+ @Test void liveRequiresTlsStrongSecretBudgetAndSeparateProfile(){
+  var env=new MockEnvironment().withProperty("lmt.identity.hourly-limit","20");
+  assertThatThrownBy(()->new IdentityConfig(env,"live","short","","https://localhost","")).isInstanceOf(IllegalStateException.class);
+  assertThatThrownBy(()->new IdentityConfig(env,"live","x".repeat(40),"","http://localhost","")).isInstanceOf(IllegalStateException.class);
+  env.setActiveProfiles("local");assertThatThrownBy(()->new IdentityConfig(env,"live","x".repeat(40),"","https://localhost","")).isInstanceOf(IllegalStateException.class);
+ }
 }

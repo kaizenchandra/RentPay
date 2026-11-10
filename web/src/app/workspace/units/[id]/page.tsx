@@ -1,0 +1,3 @@
+import Unit from '../../../../features/property/unit';
+export const metadata={title:'Unit details · LMT',robots:{index:false,follow:false}};
+export default async function Page({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{workspace?:string;property?:string}>}){const {id}=await params;const {workspace,property}=await searchParams;return workspace&&property?<Unit key={workspace+property+id} workspace={workspace} property={property} id={id}/>:<main><h1>Choose a property context</h1><p>Open this unit from its property register.</p><a href="/account">Your workspaces</a></main>;}

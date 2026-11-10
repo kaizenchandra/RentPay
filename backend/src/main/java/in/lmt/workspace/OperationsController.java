@@ -8,6 +8,7 @@ import org.springframework.http.*;
 @RestController @RequestMapping("/api/v1")
 public class OperationsController {
  private final WelcomeOperations service;public OperationsController(WelcomeOperations service){this.service=service;}
+ @GetMapping("/me/notification-deliveries") public WelcomeOperations.PersonalDeliveries personal(Authentication a,@RequestParam(required=false)String cursor){return service.personalDeliveries(UUID.fromString(a.getName()),cursor);}
  public record Recovery(@NotBlank @Size(min=10,max=300) @Pattern(regexp="[^\\p{Cntrl}]*") String reason){}
  @GetMapping("/workspaces/{w}/operations") public WelcomeOperations.Operations list(Authentication a,@PathVariable UUID w,@RequestParam(required=false)String cursor){return service.list(UUID.fromString(a.getName()),w,cursor);}
  @GetMapping("/operations/{id}") public ResponseEntity<WelcomeOperations.Detail> detail(Authentication a,@PathVariable UUID id){var result=service.detail(UUID.fromString(a.getName()),id);return ResponseEntity.ok().eTag(result.operation().etag()).body(result);}

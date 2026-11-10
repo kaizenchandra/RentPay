@@ -13,9 +13,10 @@ import tools.jackson.databind.ObjectMapper;
 /** Durable scheduling and recovery for the existing in-app welcome handler only. */
 @Service
 public class WelcomeOperations {
+ private final in.lmt.identity.NotificationPreferences preferences;
  private final JdbcClient db;private final WorkspaceCommands authority;private final Audit audit;private final ObjectMapper json;private final int leaseSeconds;
- public WelcomeOperations(JdbcClient db,WorkspaceCommands authority,Audit audit,ObjectMapper json,@Value("${lmt.workspace.lease-seconds:30}")int leaseSeconds){
-  this.db=db;this.authority=authority;this.audit=audit;this.json=json;if(leaseSeconds<1||leaseSeconds>300)throw new IllegalArgumentException("Lease seconds must be 1–300");this.leaseSeconds=leaseSeconds;
+ public WelcomeOperations(JdbcClient db,WorkspaceCommands authority,Audit audit,ObjectMapper json,in.lmt.identity.NotificationPreferences preferences,@Value("${lmt.workspace.lease-seconds:30}")int leaseSeconds){
+  this.preferences=preferences;this.db=db;this.authority=authority;this.audit=audit;this.json=json;if(leaseSeconds<1||leaseSeconds>300)throw new IllegalArgumentException("Lease seconds must be 1–300");this.leaseSeconds=leaseSeconds;
  }
  public record Claim(UUID id,UUID actor,UUID workspace,UUID token,String type){}
  public record Operation(UUID id,UUID workspaceId,String type,String status,int attempts,int cycleAttempts,int maxAttempts,int version,String etag,Instant createdAt,Instant updatedAt,Instant nextAttemptAt,Instant leaseUntil,String lastCode){}
@@ -39,6 +40,20 @@ public class WelcomeOperations {
   var rows=db.sql("SELECT * FROM workspace_outbox WHERE scope_id=:w AND event_id>:after ORDER BY event_id LIMIT 26").param("w",w).param("after",after).query((r,n)->projection(r)).list();boolean more=rows.size()>25;var items=more?rows.subList(0,25):rows;
   String next=more?Base64.getUrlEncoder().withoutPadding().encodeToString((context+"/"+items.getLast().id()).getBytes(java.nio.charset.StandardCharsets.UTF_8)):null;
   int total=db.sql("SELECT count(*) FROM workspace_outbox WHERE scope_id=:w").param("w",w).query(Integer.class).single();String name=db.sql("SELECT name FROM workspace WHERE id=:w").param("w",w).query(String.class).single();return new Operations(w,name,items,new Page(25,next),total,Instant.now());
+ }
+ public record PersonalDeliveries(List<Operation> items,Page page,int totalMatching,Instant asOf){}
+ @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+ public PersonalDeliveries personalDeliveries(UUID actor,String cursor){
+  authority.scope(actor);UUID after=new UUID(0,0);String context=actor+":personal-deliveries";
+  if(cursor!=null)try{String[] parts=new String(Base64.getUrlDecoder().decode(cursor),java.nio.charset.StandardCharsets.UTF_8).split("/");if(parts.length!=2||!context.equals(parts[0]))throw new IllegalArgumentException();after=UUID.fromString(parts[1]);}catch(RuntimeException invalid){throw new ApiProblem(422,"INVALID_CURSOR","Refresh your pending deliveries.","cursor");}
+  var preference=preferences.get(actor);
+  if(!preference.workspaceSetupEnabled())return new PersonalDeliveries(List.of(),new Page(25,null),0,Instant.now());
+  String eligible=" FROM workspace_outbox o WHERE o.actor_id=:actor AND o.event_type='workspace.provisioned.v1' AND o.status IN ('pending','running','failed','blocked') AND o.occurred_at>=:enabled AND EXISTS(SELECT 1 FROM workspace_member m WHERE m.workspace_id=o.scope_id AND m.account_id=:actor AND m.active AND m.role='OWNER')";
+  var rows=db.sql("SELECT o.*"+eligible+" AND o.event_id>:after ORDER BY o.event_id LIMIT 26").param("actor",actor).param("enabled",java.sql.Timestamp.from(preference.enabledAt())).param("after",after).query((r,n)->projection(r)).list();
+  boolean more=rows.size()>25;var items=more?rows.subList(0,25):rows;
+  String next=more?Base64.getUrlEncoder().withoutPadding().encodeToString((context+"/"+items.getLast().id()).getBytes(java.nio.charset.StandardCharsets.UTF_8)):null;
+  int total=db.sql("SELECT count(*)"+eligible).param("actor",actor).param("enabled",java.sql.Timestamp.from(preference.enabledAt())).query(Integer.class).single();
+  return new PersonalDeliveries(items,new Page(25,next),total,Instant.now());
  }
  @Transactional public Operation recover(UUID actor,UUID id,UUID key,String expected,String reason,boolean cancel){
   authorize(actor,id);if(reason.strip().length()<10)throw new ApiProblem(422,"VALIDATION_FAILED","Explain the recovery reason in at least 10 characters.","reason");String op=cancel?"cancel":"retry";String hash=ChallengeService.hash(expected+":"+reason.strip());
@@ -84,6 +99,13 @@ public class WelcomeOperations {
   if(!authorized){terminal(c,"blocked","AUTHORITY_REVOKED","authority_revoked");return;}
   if(!c.type().equals("workspace.provisioned.v1")){terminal(c,"blocked","HANDLER_UNAVAILABLE","handler_unavailable");return;}
   db.sql("INSERT INTO workspace_notification(event_id,workspace_id,message) VALUES(:e,:w,'Your sandbox workspace is ready. Property and rental operations are not available yet.') ON CONFLICT(event_id) DO NOTHING").param("e",c.id()).param("w",c.workspace()).update();
+  var occurred=db.sql("SELECT occurred_at FROM workspace_outbox WHERE event_id=:id").param("id",c.id()).query(java.time.OffsetDateTime.class).single().toInstant();
+  var resume=preferences.workspaceReady(c.actor(),c.id(),occurred);
+  if(resume!=null){
+   db.sql("UPDATE workspace_outbox SET status='pending',cycle_attempts=cycle_attempts-1,next_attempt_at=:resume,lease_token=NULL,lease_until=NULL,last_code='QUIET_HOURS_DEFERRED',version=version+1,updated_at=clock_timestamp() WHERE event_id=:id").param("resume",java.sql.Timestamp.from(resume)).param("id",c.id()).update();
+   db.sql("UPDATE operation_attempt SET outcome='quiet_hours_deferred',finished_at=clock_timestamp() WHERE lease_token=:token").param("token",c.token()).update();
+   audit.record(c.actor(),c.workspace(),"operation.quiet_hours_deferred",c.id());return;
+  }
   terminal(c,"delivered",null,"completed");
  }
  @Transactional public void failed(Claim c){

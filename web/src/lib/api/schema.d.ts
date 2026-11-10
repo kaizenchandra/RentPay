@@ -77,7 +77,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Local sandbox mobile or email OTP only. Request response does not disclose account existence. Email domains are lowercased and local parts retain case; no account linking or merging. Codes expire after five minutes and permit five attempts. Five requests per destination/session per fifteen minutes. Sandbox proof cannot authenticate a live-mode account. Live delivery is not configured. */
+        /** @description Request a session-bound sign-in code via the configured sandbox or live SMS/email delivery. Durable delivery intent commits before provider calls. Five-minute proof, five attempts, destination/session rate limit and configured global live request cap. Live accounts and sandbox accounts remain distinct; no automatic merging or conversion. Accepted provider submission is not delivery confirmation; unknown outcomes remain explicit. */
         post: operations["requestChallenge"];
         delete?: never;
         options?: never;
@@ -238,6 +238,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Account-owned in-app notices, newest occurrence first with descending ID tie-breaker. Cursor binds account and read-state filter. Cross-account/filter or obsolete cursors return 422. Counts are current asOf; new notices require refresh. Marking a notice read preserves its history. */
         get: operations["listSecurityNotifications"];
         put?: never;
         post?: never;
@@ -976,6 +977,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Account-owned in-app notices, newest occurrence first with descending ID tie-breaker. Cursor binds account and read-state filter. Cross-account/filter or obsolete cursors return 422. Counts are current asOf; new notices require refresh. Marking a notice read preserves its history. */
         get: operations["listAccountNotifications"];
         put?: never;
         post?: never;
@@ -1105,6 +1107,776 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/identity-links/unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm verified contact link
+         * @description Remove one linked contact in the local sandbox after fresh session reauthentication through the retained contact at the current profile version. Requires both contacts. Revokes other sessions, invalidates outstanding contact proofs, increments authentication generation and records an account security notice. Exact command retry returns the original profile. No account merge or workspace reassignment.
+         */
+        post: operations["unlinkIdentityContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Account-owned in-app workspace setup opt-in, default off. Essential security notices and shared workspace messages remain enabled. Only events created after the current opt-in period qualify; worker rechecks consent at delivery. No historical backfill or paid-plan requirement. Optional quiet hours use Asia/Kolkata, start-inclusive/end-exclusive including overnight. Shared and security notices bypass quiet hours. Pending personal delivery is durably rechecked within 60 seconds, with no failure-retry consumption. */
+        get: operations["getNotificationPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Account-owned in-app workspace setup opt-in, default off. Essential security notices and shared workspace messages remain enabled. Only events created after the current opt-in period qualify; worker rechecks consent at delivery. No historical backfill or paid-plan requirement. Optional quiet hours use Asia/Kolkata, start-inclusive/end-exclusive including overnight. Shared and security notices bypass quiet hours. Pending personal delivery is durably rechecked within 60 seconds, with no failure-retry consumption. */
+        patch: operations["changeNotificationPreferences"];
+        trace?: never;
+    };
+    "/auth/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Public runtime identity mode and supported sign-in channels. Contains no credentials or provider references. */
+        get: operations["getIdentityConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notification-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Pending optional workspace setup notices for the authenticated creator with current owner authority and applicable opt-in. Stable ID pagination; excludes completed/cancelled delivery and pre-consent events. Read-only projection; preferences and authorized workspace operation recovery remain separate commands. */
+        get: operations["listPersonalNotificationDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/invitations/{id}/replace-expired": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Owner-confirmed replacement of an expired invitation. Server reuses its stored contact; requires current eligibility, strong If-Match and idempotency. One replacement per source invitation, with durable same-workspace lineage. No membership or quota reservation. Old record remains expired; refreshed confirmation is required after worker version changes. */
+        post: operations["replaceExpiredWorkspaceInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/invitation-expiry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Current owner only. Includes inactive history and actual manager allowance/usage; 25-item pages. */
+        get: operations["getWorkspaceInvitationExpiryStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/properties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listProperties"];
+        put?: never;
+        post: operations["createProperty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/properties/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProperty"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["editProperty"];
+        trace?: never;
+    };
+    "/workspaces/{w}/properties/{id}/archive-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveProperty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/properties/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreProperty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/properties/{id}/readiness-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reviewPropertyReadiness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/properties/{id}/spaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPropertySpaces"];
+        put?: never;
+        post: operations["createPropertySpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/properties/{id}/spaces/{space}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPropertySpace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["editPropertySpace"];
+        trace?: never;
+    };
+    "/workspaces/{w}/properties/{id}/spaces/{space}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["changePropertySpaceState"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read authorized workspace subscription dashboard
+         * @description Repeatable-read owner billing snapshot using the contracted plan version, effective grants and recorded capacity. Paid billing, add-ons, messaging metering and payment history are currently unavailable. Null never means zero. Rental and personal payments excluded. No mutations or provider calls.
+         */
+        get: operations["getWorkspaceSubscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/upgrade-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * getUpgradeOptions
+         * @description Owner-scoped local sandbox only. No money collected. Server-calculated quote, immutable terms, explicit simulation. Pending is not paid. Existing-resource commands require strong version. Same key/body replays, changed arguments conflict. Live provider unavailable.
+         */
+        get: operations["getUpgradeOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/change-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * quoteSubscriptionUpgrade
+         * @description Owner-scoped local sandbox only. No money collected. Server-calculated quote, immutable terms, explicit simulation. Pending is not paid. Existing-resource commands require strong version. Same key/body replays, changed arguments conflict. Live provider unavailable.
+         */
+        post: operations["quoteSubscriptionUpgrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * confirmSubscriptionUpgrade
+         * @description Owner-scoped local sandbox only. No money collected. Server-calculated quote, immutable terms, explicit simulation. Pending is not paid. Existing-resource commands require strong version. Same key/body replays, changed arguments conflict. Live provider unavailable.
+         */
+        post: operations["confirmSubscriptionUpgrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/changes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * getSubscriptionUpgrade
+         * @description Owner-scoped local sandbox only. No money collected. Server-calculated quote, immutable terms, explicit simulation. Pending is not paid. Existing-resource commands require strong version. Same key/body replays, changed arguments conflict. Live provider unavailable.
+         */
+        get: operations["getSubscriptionUpgrade"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/changes/{id}/sandbox-outcomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * simulateSubscriptionUpgradePayment
+         * @description Owner-scoped local sandbox only. No money collected. Server-calculated quote, immutable terms, explicit simulation. Pending is not paid. Existing-resource commands require strong version. Same key/body replays, changed arguments conflict. Live provider unavailable.
+         */
+        post: operations["simulateSubscriptionUpgradePayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/downgrades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * getSubscriptionDowngrades
+         * @description Authorized local paid-to-Free boundary downgrade. No automatic deletion, refund or payment. Immutable reviewed consequences; current usage rechecked at confirmation. Existing usage retained above allowance. Worker reauthorizes at execution. Paid-to-paid/live renewal policy remains unavailable.
+         */
+        get: operations["getSubscriptionDowngrades"];
+        put?: never;
+        /**
+         * scheduleSubscriptionDowngrade
+         * @description Authorized local paid-to-Free boundary downgrade. No automatic deletion, refund or payment. Immutable reviewed consequences; current usage rechecked at confirmation. Existing usage retained above allowance. Worker reauthorizes at execution. Paid-to-paid/live renewal policy remains unavailable.
+         */
+        post: operations["scheduleSubscriptionDowngrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/downgrades/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * reviewSubscriptionDowngrade
+         * @description Authorized local paid-to-Free boundary downgrade. No automatic deletion, refund or payment. Immutable reviewed consequences; current usage rechecked at confirmation. Existing usage retained above allowance. Worker reauthorizes at execution. Paid-to-paid/live renewal policy remains unavailable.
+         */
+        post: operations["reviewSubscriptionDowngrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/downgrades/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * cancelSubscriptionDowngrade
+         * @description Authorized local paid-to-Free boundary downgrade. No automatic deletion, refund or payment. Immutable reviewed consequences; current usage rechecked at confirmation. Existing usage retained above allowance. Worker reauthorizes at execution. Paid-to-paid/live renewal policy remains unavailable.
+         */
+        post: operations["cancelSubscriptionDowngrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/downgrades/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * retrySubscriptionDowngrade
+         * @description Authorized local paid-to-Free boundary downgrade. No automatic deletion, refund or payment. Immutable reviewed consequences; current usage rechecked at confirmation. Existing usage retained above allowance. Worker reauthorizes at execution. Paid-to-paid/live renewal policy remains unavailable.
+         */
+        post: operations["retrySubscriptionDowngrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * getSubscriptionCancellations
+         * @description Owner-authorized local paid subscription cancellation. Uses the shared durable boundary transition with immutable cancellation policy, retention and refund/credit applicability. Paid access continues until application; then Free access and quotas apply without deleting records. Not workspace closure. Live cancellation/refunds and Free closure are unavailable. Strong preconditions and scoped replay; withdrawal fences pending work.
+         */
+        get: operations["getSubscriptionCancellations"];
+        put?: never;
+        /**
+         * scheduleSubscriptionCancellation
+         * @description Owner-authorized local paid subscription cancellation. Uses the shared durable boundary transition with immutable cancellation policy, retention and refund/credit applicability. Paid access continues until application; then Free access and quotas apply without deleting records. Not workspace closure. Live cancellation/refunds and Free closure are unavailable. Strong preconditions and scoped replay; withdrawal fences pending work.
+         */
+        post: operations["scheduleSubscriptionCancellation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/cancellation/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * reviewSubscriptionCancellation
+         * @description Owner-authorized local paid subscription cancellation. Uses the shared durable boundary transition with immutable cancellation policy, retention and refund/credit applicability. Paid access continues until application; then Free access and quotas apply without deleting records. Not workspace closure. Live cancellation/refunds and Free closure are unavailable. Strong preconditions and scoped replay; withdrawal fences pending work.
+         */
+        post: operations["reviewSubscriptionCancellation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/cancellation/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * withdrawSubscriptionCancellation
+         * @description Owner-authorized local paid subscription cancellation. Uses the shared durable boundary transition with immutable cancellation policy, retention and refund/credit applicability. Paid access continues until application; then Free access and quotas apply without deleting records. Not workspace closure. Live cancellation/refunds and Free closure are unavailable. Strong preconditions and scoped replay; withdrawal fences pending work.
+         */
+        post: operations["withdrawSubscriptionCancellation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/cancellation/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * retrySubscriptionCancellation
+         * @description Owner-authorized local paid subscription cancellation. Uses the shared durable boundary transition with immutable cancellation policy, retention and refund/credit applicability. Paid access continues until application; then Free access and quotas apply without deleting records. Not workspace closure. Live cancellation/refunds and Free closure are unavailable. Strong preconditions and scoped replay; withdrawal fences pending work.
+         */
+        post: operations["retrySubscriptionCancellation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/payment-recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read payment failure, retry, grace applicability and restrictions
+         * @description Owner-scoped authoritative latest 25 upgrade changes. Upgrade failure preserves the current plan; renewal grace is unavailable, not an invented countdown. Unknown outcomes require reconciliation. No rental or personal payments.
+         */
+        get: operations["getSubscriptionPaymentRecovery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/changes/{id}/retry-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a bounded retry after definitive failure
+         * @description Sandbox-only manual retry of the same change and unexpired quote. Strong If-Match, scoped idempotency and serialized attempt increment. Three total attempts with a 30-second cooldown under local policy v1. Unknown is not failed. No provider call or automatic collection; renewed awaiting_payment is not paid. Errors include PAYMENT_RETRY_NOT_DUE, PAYMENT_RETRY_EXHAUSTED, PROVIDER_OUTCOME_UNKNOWN, APPROVAL_STALE and pending-change conflicts.
+         */
+        post: operations["retrySubscriptionPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/changes/{id}/sandbox-callbacks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * recordSandboxSubscriptionCallback
+         * @description Owner-authenticated CSRF-protected local callback simulation, not a live provider webhook. A paid receipt commits before activation; duplicate event keys replay, changed evidence conflicts. Worker reauthorizes and applies separately. Reversal fences activation and creates review without deleting records or inventing a refund. Activation retry never collects again. Renewal/provider-specific recovery remains unavailable.
+         */
+        post: operations["recordSandboxSubscriptionCallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/subscription/changes/{id}/retry-activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * retrySubscriptionActivation
+         * @description Owner-authenticated CSRF-protected local callback simulation, not a live provider webhook. A paid receipt commits before activation; duplicate event keys replay, changed evidence conflicts. Worker reauthorizes and applies separately. Reversal fences activation and creates review without deleting records or inventing a refund. Activation retry never collects again. Renewal/provider-specific recovery remains unavailable.
+         */
+        post: operations["retrySubscriptionActivation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/entitlements/{capability}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evaluate a capability in the authenticated workspace context
+         * @description Current active workspace membership required. Unknown capability returns 422 UNKNOWN_CAPABILITY. Same centralized evaluator used by domain commands. Plan + active scoped local add-ons/timed grants, then deny-wins commercial overrides, subscription/workspace/security and operational availability gates. Eligibility does not confer resource permission or quota. No caller-supplied plan, role or paid status.
+         */
+        get: operations["evaluateWorkspaceCapability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/entitlements/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Frontend-safe effective feature and quota snapshot
+         * @description Active workspace members only. No-store; refresh after mutations, focus and within refreshAfterSeconds. Snapshot is advisory: commands re-evaluate authoritatively. Upgrade action only for billing owners. No private payment or grant evidence.
+         */
+        get: operations["getEffectiveEntitlementSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/usage/communications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read configured communication metric, allowance and durable operations
+         * @description Owner-only, no-store. Active explicit local period. Provider accepted is distinct from delivery/charge. Unconfigured channels return null usage, not zero. Authentication traffic is excluded. Unknown provider outcomes keep reservations. Last 25 operations, aggregate usage includes all operations in the bound contract.
+         */
+        get: operations["getCommunicationUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/communications/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm one metered local inbox test to the signed-in owner
+         * @description Sandbox-only diagnostic; not live messaging eligibility. Requires active configured contract, linked test contact and matching profile version. Reserves one unit transactionally; actor/workspace idempotency returns same operation, changed body conflicts. Worker reauthorizes before external effect. 202 is durable acceptance, not provider acceptance. Unknown outcomes are not blindly retried.
+         */
+        post: operations["queueLocalCommunicationTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/communications/{id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a durable read-only local inbox evidence check
+         * @description Workspace billing owner only. Requires current operation ETag, idempotency key and reason. Only unknown sandbox operations can be reconciled. Does not resend or release quota without evidence. Worker reauthorizes; verifies operation, original keyed recipient fingerprint and exact content. Missing/ambiguous/expired evidence retains the unknown hold. Provider outages use bounded retries.
+         */
+        post: operations["reconcileLocalCommunication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/usage/communications/periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read authoritative communication usage by configured period
+         * @description Owner-only no-store report. Dates select overlapping periods; amounts are whole-period counts, not a prorated date slice. 25-item keyset pagination is scoped to actor/workspace/date filters. Unknown outcomes and late receipt attribution preserve the original contract. No overage forecast or price is fabricated.
+         */
+        get: operations["getCommunicationPeriods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/amenity-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search workspace amenity definitions and historical aliases
+         * @description Owner-scoped catalog configuration, not installed inventory. Defaults are editable and categorization is data. Search aliases resolve to the same stable definition, including preserved historical spellings. No deletion. 25-row stable code pagination; cursor binds actor/workspace/filters. Retired definitions remain readable.
+         */
+        get: operations["listAmenityTypes"];
+        put?: never;
+        /**
+         * Create amenity definition
+         * @description Owner-authorized PROPERTY_EDIT operation, audit and scoped idempotency commit atomically. Stable code/name/aliases are unique per workspace. Features/services use availability rather than physical quantities. Changes preserve immutable historical definitions; retiring does not delete records or change supplied inventory. Current ETag required for update.
+         */
+        post: operations["createAmenityType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{w}/amenity-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read current definition and most recent 50 immutable revisions
+         * @description Owner-scoped catalog configuration, not installed inventory. Defaults are editable and categorization is data. Search aliases resolve to the same stable definition, including preserved historical spellings. No deletion. 25-row stable code pagination; cursor binds actor/workspace/filters. Retired definitions remain readable.
+         */
+        get: operations["getAmenityDefinition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Version or retire amenity definition
+         * @description Owner-authorized PROPERTY_EDIT operation, audit and scoped idempotency commit atomically. Stable code/name/aliases are unique per workspace. Features/services use availability rather than physical quantities. Changes preserve immutable historical definitions; retiring does not delete records or change supplied inventory. Current ETag required for update.
+         */
+        patch: operations["updateAmenityType"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1165,7 +1937,7 @@ export interface components {
         Session: {
             authenticated: boolean;
             /** @enum {string} */
-            mode: "sandbox" | "unavailable";
+            mode: "sandbox" | "unavailable" | "live";
             account: components["schemas"]["Account"] | null;
         };
         ChallengeRequest: {
@@ -1181,9 +1953,9 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            status: "pending" | "ready" | "delivered" | "failed" | "expired" | "locked" | "consumed";
+            status: "pending" | "ready" | "delivered" | "failed" | "expired" | "locked" | "consumed" | "dispatching" | "accepted" | "unknown";
             /** @enum {string} */
-            mode: "sandbox";
+            mode: "sandbox" | "live";
             maskedDestination: string;
             /** Format: date-time */
             expiresAt: string;
@@ -1297,6 +2069,8 @@ export interface components {
             readAt: string | null;
             version: number;
             etag: string;
+            /** @enum {string} */
+            category: "security" | "workspace_setup" | "workspace_access" | "workspace_invitation" | "workspace_subscription";
         };
         Sessions: {
             items: components["schemas"]["SessionView"][];
@@ -1354,7 +2128,10 @@ export interface components {
             role: "MANAGER";
             /** @constant */
             scope: "membership_only";
-            /** @enum {string} */
+            /**
+             * @description Expired when deadline passes, including before the worker persists expiry. Worker commits expired state and version with an authorized owner notice; no membership/capacity allocation. Concurrent stale commands return 412 or unavailable commands 409.
+             * @enum {string}
+             */
             status: "pending" | "expired" | "accepted" | "declined" | "revoked" | "access_revoked";
             /** Format: date-time */
             expiresAt: string;
@@ -1363,6 +2140,11 @@ export interface components {
             /** @enum {string} */
             channel: "mobile" | "email";
             maskedDestination: string;
+            /**
+             * Format: uuid
+             * @description Previous expired invitation in this workspace, if this is an explicit replacement.
+             */
+            replacesInvitationId: string | null;
         };
         WorkspaceMembers: {
             items: components["schemas"]["WorkspaceMember"][];
@@ -1410,10 +2192,12 @@ export interface components {
             /** Format: uuid */
             planVersionId: string;
             /** @enum {string} */
-            source: "plan" | "temporary_override";
+            source: "plan" | "temporary_override" | "commercial_override" | "add_on" | "timed_grant";
             overrideRevision: number | null;
             /** Format: date-time */
             overrideExpiresAt: string | null;
+            operational: boolean;
+            contributions: components["schemas"]["EntitlementContribution"][];
         };
         UsageQuota: {
             resource: string;
@@ -1425,6 +2209,7 @@ export interface components {
             reconciled: boolean | null;
             definition: string;
             evidence: components["schemas"]["ManagerReconciliation"] | null;
+            excess: number;
         };
         UsageSnapshot: {
             /** Format: uuid */
@@ -1491,6 +2276,7 @@ export interface components {
             nextAttemptAt: string;
             /** Format: date-time */
             leaseUntil: string | null;
+            /** @description QUIET_HOURS_DEFERRED means shared notice is available and the optional personal copy is pending. nextAttemptAt is the next policy recheck; quiet waits do not consume cycleAttempts. */
             lastCode: string | null;
         };
         WorkspaceOperations: {
@@ -1513,7 +2299,7 @@ export interface components {
             /** Format: date-time */
             finishedAt: string | null;
             /** @enum {string} */
-            outcome: "running" | "completed" | "transient_failure" | "authority_revoked" | "handler_unavailable" | "lease_expired" | "cancelled";
+            outcome: "running" | "completed" | "transient_failure" | "authority_revoked" | "handler_unavailable" | "lease_expired" | "cancelled" | "quiet_hours_deferred";
         };
         WorkspaceOperationDetail: {
             operation: components["schemas"]["WorkspaceOperation"];
@@ -1869,6 +2655,709 @@ export interface components {
             status: "not_completed" | "completed" | "failed" | "expired" | "locked";
             /** Format: date-time */
             completedAt: string | null;
+        };
+        UnlinkContact: {
+            /** @enum {string} */
+            channel: "email" | "mobile";
+        };
+        NotificationPreferences: {
+            workspaceSetupEnabled: boolean;
+            /** Format: date-time */
+            enabledAt: string | null;
+            version: number;
+            etag: string;
+            /** @description Defer optional workspace setup personal copies during the configured Asia/Kolkata interval. */
+            quietHoursEnabled: boolean;
+            /** @example 22:00 */
+            quietStart: string;
+            /** @example 07:00 */
+            quietEnd: string;
+        };
+        /** @description Quiet-hour fields must be supplied together, with distinct HH:mm times. Omitting all three preserves the existing quiet policy for older clients. Start inclusive/end exclusive; overnight intervals supported; Asia/Kolkata. */
+        ChangeNotificationPreferences: {
+            workspaceSetupEnabled: boolean;
+            /** @description Defer optional workspace setup personal copies during the configured Asia/Kolkata interval. */
+            quietHoursEnabled?: boolean;
+            /** @example 22:00 */
+            quietStart?: string;
+            /** @example 07:00 */
+            quietEnd?: string;
+        };
+        IdentityConfiguration: {
+            /** @enum {string} */
+            mode: "sandbox" | "live" | "unavailable";
+            channels: ("mobile" | "email")[];
+            /** @description True only for sandbox delivery to local Mailpit and SMS simulator containers. */
+            localContainers: boolean;
+        };
+        PersonalNotificationDeliveries: {
+            items: components["schemas"]["WorkspaceOperation"][];
+            page: {
+                limit: number;
+                nextCursor: string | null;
+            };
+            totalMatching: number;
+            /** Format: date-time */
+            asOf: string;
+        };
+        InvitationExpiryStatus: {
+            /** Format: uuid */
+            workspaceId: string;
+            /** Format: int64 */
+            totalInvitations: number;
+            /** Format: int64 */
+            openInvitations: number;
+            /** Format: int64 */
+            awaitingExpiry: number;
+            /** Format: int64 */
+            recordedExpired: number;
+            /** Format: int64 */
+            oldestOverdueSeconds: number;
+            /** Format: date-time */
+            oldestOverdueAt: string | null;
+            /** Format: date-time */
+            asOf: string;
+        };
+        PropertyInput: {
+            code: string;
+            name: string;
+            addressLine: string;
+            locality: string;
+            city: string;
+            state: string;
+            pin: string;
+            houseRules: string;
+            latitude: string | null;
+            longitude: string | null;
+        };
+        PropertyRecord: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workspaceId: string;
+            code: string;
+            name: string;
+            addressLine: string;
+            locality: string;
+            city: string;
+            state: string;
+            pin: string;
+            houseRules: string;
+            latitude: string | null;
+            longitude: string | null;
+            /** @enum {string} */
+            status: "draft" | "review_required" | "active" | "restricted" | "archived";
+            /** @enum {string} */
+            ownershipStatus: "unverified" | "review_pending" | "verified";
+            etag: string;
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PropertySpaceInput: {
+            /** @enum {string} */
+            kind: "building" | "floor" | "unit" | "bed";
+            code: string;
+            name: string;
+            category: string;
+            /** @enum {string} */
+            areaUnit: "sq_ft" | "sq_m";
+            /** @enum {string} */
+            furnishing: "unfurnished" | "semi_furnished" | "furnished";
+            /** @enum {string} */
+            rentalMode: "whole" | "shared";
+            area: string | null;
+            rent: string | null;
+            deposit: string | null;
+            maintenance: string | null;
+            capacity: number;
+            bathrooms: number;
+            balconies: number;
+            /** Format: uuid */
+            parentId: string | null;
+        };
+        PropertySpace: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            propertyId: string;
+            /** @enum {string} */
+            kind: "building" | "floor" | "unit" | "bed";
+            code: string;
+            name: string;
+            category: string;
+            /** @enum {string} */
+            areaUnit: "sq_ft" | "sq_m";
+            /** @enum {string} */
+            furnishing: "unfurnished" | "semi_furnished" | "furnished";
+            /** @enum {string} */
+            rentalMode: "whole" | "shared";
+            area: string | null;
+            rent: string | null;
+            deposit: string | null;
+            maintenance: string | null;
+            capacity: number;
+            bathrooms: number;
+            balconies: number;
+            /** Format: uuid */
+            parentId: string | null;
+            /** @enum {string} */
+            currency: "INR";
+            /** @enum {string} */
+            status: "draft" | "ready" | "maintenance_blocked" | "archived";
+            version: number;
+            etag: string;
+        };
+        PropertyReason: {
+            reason: string;
+        };
+        PropertySpaceState: {
+            /** @enum {string} */
+            status: "draft" | "ready" | "maintenance_blocked" | "archived";
+            reason: string;
+        };
+        PropertyHistory: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            resourceId: string;
+            action: string;
+            version: number;
+            summary: string;
+            /** Format: date-time */
+            occurredAt: string;
+        };
+        PropertyDetail: {
+            property: components["schemas"]["PropertyRecord"];
+            readinessBlockers: string[];
+            archiveBlockers: string[];
+            history: components["schemas"]["PropertyHistory"][];
+            /** @enum {string} */
+            sharedCountingMode: "unconfigured" | "beds_only" | "units_and_beds";
+        };
+        PropertyPage: {
+            items: components["schemas"]["PropertyRecord"][];
+            nextCursor: string | null;
+            totalMatching: number;
+            /** Format: date-time */
+            asOf: string;
+        };
+        PropertySpacePage: {
+            items: components["schemas"]["PropertySpace"][];
+            nextCursor: string | null;
+            totalMatching: number;
+            /** Format: date-time */
+            asOf: string;
+        };
+        SubscriptionCoverage: {
+            /** @enum {string} */
+            status: "available" | "not_applicable" | "unavailable";
+            explanation: string;
+        };
+        SubscriptionPeriod: {
+            /** @enum {string} */
+            status: "available" | "not_applicable" | "unavailable";
+            explanation: string;
+            /** Format: date-time */
+            start: string | null;
+            /** Format: date-time */
+            end: string | null;
+        };
+        SubscriptionRenewal: {
+            /** @enum {string} */
+            status: "available" | "not_applicable" | "unavailable";
+            explanation: string;
+            /** Format: date-time */
+            at: string | null;
+        };
+        SubscriptionEstimate: {
+            /** @enum {string} */
+            status: "available" | "not_applicable" | "unavailable";
+            explanation: string;
+            amount: string | null;
+            /** @enum {string} */
+            currency: "INR";
+        };
+        SubscriptionCommunication: {
+            /** @enum {string} */
+            status: "available" | "not_applicable" | "unavailable";
+            explanation: string;
+            /** @enum {string} */
+            channel: "email" | "whatsapp";
+            used: number | null;
+            allowance: number | null;
+            /** Format: date-time */
+            periodStart: string | null;
+            /** Format: date-time */
+            periodEnd: string | null;
+        };
+        SubscriptionUpgrade: {
+            /** Format: uuid */
+            versionId: string;
+            code: string;
+            name: string;
+            rentableLimit: number | null;
+            managerLimit: number | null;
+            available: boolean;
+            explanation: string;
+        };
+        SubscriptionDashboard: {
+            /** Format: uuid */
+            subscriptionId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            workspaceName: string;
+            mode: string;
+            workspaceStatus: string;
+            /** Format: uuid */
+            planVersionId: string;
+            planCode: string;
+            planName: string;
+            planVersion: number;
+            subscriptionStatus: string;
+            /** Format: date-time */
+            startedAt: string;
+            billingPeriod: components["schemas"]["SubscriptionPeriod"];
+            nextRenewal: components["schemas"]["SubscriptionRenewal"];
+            nextInvoiceEstimate: components["schemas"]["SubscriptionEstimate"];
+            activeAddOns: components["schemas"]["SubscriptionCoverage"];
+            quotas: components["schemas"]["UsageQuota"][];
+            communicationUsage: components["schemas"]["SubscriptionCommunication"][];
+            upgrades: components["schemas"]["SubscriptionUpgrade"][];
+            upgradeAvailability: components["schemas"]["SubscriptionCoverage"];
+            paymentHistory: components["schemas"]["SubscriptionCoverage"];
+            entitlements: components["schemas"]["CapabilityDecision"][];
+            /** Format: date-time */
+            asOf: string;
+        };
+        UpgradeOffer: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            targetVersionId: string;
+            name: string;
+            rentableLimit: number;
+            managerLimit: number;
+            baseAmount: string;
+            taxRate: string;
+            /** @enum {integer} */
+            intervalMonths: 1 | 12;
+            /** @enum {string} */
+            proration: "none_free_only" | "unused_time_credit";
+            recipient: string;
+            disclosure: string;
+        };
+        UpgradeQuote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            offerId: string;
+            /** Format: uuid */
+            targetVersionId: string;
+            subscriptionVersion: number;
+            policyVersion: number;
+            currentPlan: string;
+            requestedPlan: string;
+            rentableLimit: number;
+            managerLimit: number;
+            newFeatures: string[];
+            baseAmount: string;
+            credit: string;
+            taxableAmount: string;
+            tax: string;
+            total: string;
+            taxRate: string;
+            /** @enum {string} */
+            currency: "INR";
+            /** @enum {integer} */
+            intervalMonths: 1 | 12;
+            proration: string;
+            recipient: string;
+            effectivePolicy: string;
+            /** Format: date-time */
+            quotedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** @enum {string} */
+            mode: "sandbox";
+            entitlementFingerprint: string | null;
+        };
+        UpgradeChange: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "awaiting_payment" | "payment_unknown" | "payment_failed" | "applied" | "review_required";
+            version: number;
+            etag: string;
+            quote: components["schemas"]["UpgradeQuote"];
+            /** Format: date-time */
+            appliedAt: string | null;
+            /** @description Current reads include retry policy; historical idempotency responses may omit it. Refresh for current eligibility. */
+            retry?: components["schemas"]["PaymentRetry"] | null;
+            /** @description Durable received-payment evidence and activation recovery. Absent in old idempotency responses; refresh for current state. */
+            settlement?: components["schemas"]["SubscriptionSettlement"] | null;
+        };
+        UpgradeState: {
+            /** Format: uuid */
+            workspaceId: string;
+            currentPlan: string;
+            subscriptionVersion: number;
+            etag: string;
+            offers: components["schemas"]["UpgradeOffer"][];
+            changes: components["schemas"]["UpgradeChange"][];
+            mode: string;
+            explanation: string;
+        };
+        UpgradeQuoteInput: {
+            /** Format: uuid */
+            offerId: string;
+        };
+        UpgradeConfirmation: {
+            /** Format: uuid */
+            quoteId: string;
+        };
+        UpgradeOutcome: {
+            /** @enum {string} */
+            outcome: "paid" | "failed" | "unknown";
+        };
+        DowngradeQuota: {
+            resource: string;
+            currentAllowance: number;
+            targetAllowance: number;
+            used: number;
+            reserved: number;
+            excess: number;
+        };
+        DowngradeTarget: {
+            /** Format: uuid */
+            versionId: string;
+            name: string;
+            rentableLimit: number | null;
+            managerLimit: number | null;
+            eligible: boolean;
+            reason: string;
+        };
+        DowngradeReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            targetVersionId: string;
+            subscriptionVersion: number;
+            fingerprint: string;
+            currentPlan: string;
+            targetPlan: string;
+            /** Format: date-time */
+            effectiveAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            quotas: components["schemas"]["DowngradeQuota"][];
+            lostFeatures: string[];
+            retainedFeatures: string[];
+            preservation: string;
+            mode: string;
+            /** @description Immutable cancellation-specific policy. Null or absent for legacy downgrade reviews. */
+            cancellation?: components["schemas"]["SubscriptionCancellationTerms"] | null;
+        };
+        DowngradeRequest: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "scheduled" | "applied" | "cancelled" | "review_required";
+            version: number;
+            etag: string;
+            review: components["schemas"]["DowngradeReview"];
+            attempts: number;
+            lastCode: string | null;
+            /** Format: date-time */
+            appliedAt: string | null;
+        };
+        DowngradeState: {
+            /** Format: uuid */
+            workspaceId: string;
+            currentPlan: string;
+            etag: string;
+            /** Format: date-time */
+            periodEnd: string | null;
+            targets: components["schemas"]["DowngradeTarget"][];
+            requests: components["schemas"]["DowngradeRequest"][];
+            explanation: string;
+            /** Format: date-time */
+            asOf: string;
+        };
+        DowngradePreviewInput: {
+            /** Format: uuid */
+            targetVersionId: string;
+        };
+        DowngradeConfirmInput: {
+            /** Format: uuid */
+            reviewId: string;
+        };
+        DowngradeCommandInput: Record<string, never>;
+        SubscriptionCancellationTerms: {
+            policyVersion: string;
+            /** @enum {string} */
+            refundStatus: "not_applicable_sandbox";
+            /** @description Null when no actual monetary settlement applies. Never a synthetic refund or credit. */
+            refundAmount: string | null;
+            /** @enum {string} */
+            creditStatus: "not_applicable_sandbox";
+            /** @description Null when no actual monetary settlement applies. Never a synthetic refund or credit. */
+            creditAmount: string | null;
+            currency: string;
+            retentionPolicy: string;
+            accessConsequences: string;
+        };
+        SubscriptionCancellationReviewInput: Record<string, never>;
+        PaymentRetry: {
+            policyVersion: string | null;
+            attemptNumber: number | null;
+            maxAttempts: number | null;
+            /** Format: date-time */
+            failedAt: string | null;
+            /** Format: date-time */
+            retryAt: string | null;
+            allowed: boolean;
+            reason: string;
+            /** @enum {string} */
+            graceStatus: "not_applicable";
+            restrictions: string;
+        };
+        SubscriptionPaymentRecovery: {
+            /** Format: uuid */
+            workspaceId: string;
+            currentPlan: string;
+            subscriptionStatus: string;
+            workspaceStatus: string;
+            /** @enum {string} */
+            graceStatus: "not_applicable";
+            /** Format: date-time */
+            graceEndsAt: string | null;
+            graceExplanation: string;
+            restrictions: string;
+            changes: components["schemas"]["UpgradeChange"][];
+            /** Format: date-time */
+            asOf: string;
+            /** @enum {string} */
+            mode: "sandbox" | "unavailable";
+        };
+        SubscriptionSettlement: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "queued" | "applied" | "review_required" | "reversal_review";
+            version: number;
+            etag: string;
+            /** Format: date-time */
+            receivedAt: string;
+            /** Format: date-time */
+            appliedAt: string | null;
+            /** Format: date-time */
+            reversedAt: string | null;
+            attempts: number;
+            lastCode: string | null;
+        };
+        EntitlementContribution: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "add_on" | "timed_grant" | "commercial_override";
+            /** @enum {string} */
+            effect: "allow" | "deny";
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        EntitlementEvaluation: {
+            /** Format: uuid */
+            workspaceId: string;
+            /** Format: date-time */
+            asOf: string;
+            decision: components["schemas"]["CapabilityDecision"];
+        };
+        FeatureAccess: {
+            code: string;
+            label: string;
+            eligible: boolean;
+            reason: string;
+            limitation: string;
+            requiredPlans: string[];
+            upgradeAvailable: boolean;
+        };
+        /** @description Workspace-scoped counters under an immutable bound counting policy. New sandbox workspaces count independently rentable whole units and beds once, shared containers zero. Existing workspaces retain their prior policy. Draft/ready/maintenance-blocked count; archived does not. Occupants and tenancies never multiply inventory. Weighted combinations are unsupported. Owner projection reconciles inventory and evidence; remaining is null when unassessed or inconsistent. */
+        EffectiveQuota: {
+            resource: string;
+            allowance: number;
+            used: number;
+            reserved: number;
+            remaining: number | null;
+            /** @enum {string} */
+            status: "NOT_ASSESSED" | "AVAILABLE" | "NEAR_LIMIT" | "AT_LIMIT" | "OVER_LIMIT" | "RECONCILIATION_REQUIRED";
+            definition: string;
+            countingPolicyVersion: number | null;
+        };
+        EffectiveEntitlementSnapshot: {
+            /** Format: uuid */
+            workspaceId: string;
+            canManageBilling: boolean;
+            features: components["schemas"]["FeatureAccess"][];
+            quotas: components["schemas"]["EffectiveQuota"][];
+            /** Format: date-time */
+            asOf: string;
+            refreshAfterSeconds: number;
+        };
+        CommunicationChannel: {
+            channel: string;
+            /** Format: uuid */
+            contractId: string | null;
+            metric: string | null;
+            allowance: number | null;
+            used: number | null;
+            reserved: number | null;
+            remaining: number | null;
+            /** Format: date-time */
+            startsAt: string | null;
+            /** Format: date-time */
+            endsAt: string | null;
+            available: boolean;
+            reason: string;
+            recipient: string | null;
+        };
+        CommunicationOperation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            contractId: string;
+            channel: string;
+            /** @enum {string} */
+            status: "queued" | "dispatching" | "accepted" | "failed" | "unknown" | "cancelled";
+            code: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            version: number;
+            etag: string;
+        };
+        CommunicationUsage: {
+            /** Format: uuid */
+            workspaceId: string;
+            contactVersion: number;
+            channels: components["schemas"]["CommunicationChannel"][];
+            operations: components["schemas"]["CommunicationOperation"][];
+            /** Format: date-time */
+            asOf: string;
+            disclosure: string;
+            recoveries: components["schemas"]["CommunicationRecovery"][];
+        };
+        CommunicationTestRequest: {
+            /** Format: uuid */
+            contractId: string;
+            contactVersion: number;
+        };
+        CommunicationRecovery: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            operationId: string;
+            /** @enum {string} */
+            status: "queued" | "checking" | "matched" | "no_evidence" | "failed";
+            code: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CommunicationReconcileOutcome: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            operationId: string;
+            /** @enum {string} */
+            status: "queued" | "checking" | "matched" | "no_evidence" | "failed";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CommunicationReconcileRequest: {
+            reason: string;
+        };
+        CommunicationPeriod: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            planVersionId: string;
+            channel: string;
+            metric: string;
+            allowance: number;
+            used: number;
+            reserved: number;
+            remaining: number;
+            unknown: number;
+            failed: number;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            /** @enum {string} */
+            state: "future" | "current" | "ended";
+        };
+        CommunicationPeriodPage: {
+            items: components["schemas"]["CommunicationPeriod"][];
+            nextCursor: string | null;
+            totalMatching: number;
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            timezone: string;
+            /** Format: date-time */
+            asOf: string;
+            definition: string;
+        };
+        AmenityInput: {
+            code: string;
+            name: string;
+            category: string;
+            description: string;
+            /** @enum {string} */
+            trackingMode: "serialized" | "quantity" | "feature" | "service";
+            units: string[];
+            expectedDetails: string[];
+            aliases: string[];
+            /** @enum {string} */
+            status: "active" | "retired";
+        };
+        AmenityType: {
+            code: string;
+            name: string;
+            category: string;
+            description: string;
+            /** @enum {string} */
+            trackingMode: "serialized" | "quantity" | "feature" | "service";
+            units: string[];
+            expectedDetails: string[];
+            aliases: string[];
+            /** @enum {string} */
+            status: "active" | "retired";
+            /** Format: uuid */
+            id: string;
+            version: number;
+            etag: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AmenityRevision: {
+            definition: components["schemas"]["AmenityType"];
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        AmenityDetail: {
+            definition: components["schemas"]["AmenityType"];
+            revisions: components["schemas"]["AmenityRevision"][];
+        };
+        AmenityPage: {
+            items: components["schemas"]["AmenityType"][];
+            categories: string[];
+            nextCursor: string | null;
+            totalMatching: number;
+            /** Format: date-time */
+            asOf: string;
         };
     };
     responses: never;
@@ -3351,6 +4840,8 @@ export interface operations {
         parameters: {
             query?: {
                 cursor?: string;
+                /** @description Account-owned notification read-state filter. totalMatching reflects this filter; unreadCount covers the whole account. */
+                status?: "all" | "unread" | "read";
             };
             header?: never;
             path?: never;
@@ -8056,6 +9547,8 @@ export interface operations {
         parameters: {
             query?: {
                 cursor?: string;
+                /** @description Account-owned notification read-state filter. totalMatching reflects this filter; unreadCount covers the whole account. */
+                status?: "all" | "unread" | "read";
             };
             header?: never;
             path?: never;
@@ -8773,6 +10266,5089 @@ export interface operations {
                 };
             };
             /** @description Dependency unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unlinkIdentityContact: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "channel": "email"
+                 *     }
+                 */
+                "application/json": components["schemas"]["UnlinkContact"];
+            };
+        };
+        responses: {
+            /** @description Contact removed; original result on exact retry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Malformed request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Sign in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origin/CSRF denied or REAUTHENTICATION_REQUIRED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Privacy-safe unavailable resource */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description CONTACT_REMOVAL_UNAVAILABLE or IDEMPOTENCY_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description VERSION_STALE */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Field or cursor validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description PRECONDITION_REQUIRED */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; preserve same command on unknown outcome. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Retry same operation after service recovery */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative server result. Private responses are no-store. */
+            200: {
+                headers: {
+                    /** @description Strong account notification preference version; version zero denotes the default off policy. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description Malformed request or missing header */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Sign in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origin, CSRF or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Resource not available to this identity */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Stale plan, proof or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Request limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Dependency unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    changeNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "workspaceSetupEnabled": true
+                 *     }
+                 */
+                "application/json": components["schemas"]["ChangeNotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed account-owned result. No bearer/session-cookie values are returned. */
+            200: {
+                headers: {
+                    /** @description Strong account notification preference version; version zero denotes the default off policy. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description Malformed request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Sign in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origin/CSRF denied or REAUTHENTICATION_REQUIRED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Privacy-safe unavailable resource */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Changed idempotency request or current-session revocation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description VERSION_STALE */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Field or cursor validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description PRECONDITION_REQUIRED */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Retry same operation after service recovery */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getIdentityConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative server result. Private responses are no-store. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityConfiguration"];
+                };
+            };
+            /** @description Malformed request or missing header */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Sign in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origin, CSRF or permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Resource not available to this identity */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Stale plan, proof or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Request limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Dependency unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listPersonalNotificationDeliveries: {
+        parameters: {
+            query?: {
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative state; 202 records a retry request, not successful delivery. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalNotificationDeliveries"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Recovery preserves prior effects and requires current authority. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replaceExpiredWorkspaceInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Replacement invitation created or exact prior result replayed. */
+            201: {
+                headers: {
+                    /** @description Authorized detail resource for the created or replayed replacement. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipOutcome"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details. Missing/stale version requires refreshed confirmation. INVITATION_NOT_EXPIRED, INVITATION_ALREADY_REPLACED, INVITATION_PENDING, ALREADY_MEMBER and IDEMPOTENCY_CONFLICT are distinct 409 outcomes. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getWorkspaceInvitationExpiryStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owner-scoped snapshot of all persisted invitation records; open=unexpired pending, awaitingExpiry=due pending, recordedExpired=terminal expired. Other terminal states count only toward total. Oldest age is seconds at asOf, zero with null deadline when no due records. Does not establish worker health or notification delivery. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationExpiryStatus"];
+                };
+            };
+            /** @description Safe problem details; QUOTA_EXCEEDED is a 409 and acceptance remains pending. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; QUOTA_EXCEEDED is a 409 and acceptance remains pending. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; QUOTA_EXCEEDED is a 409 and acceptance remains pending. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; QUOTA_EXCEEDED is a 409 and acceptance remains pending. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; QUOTA_EXCEEDED is a 409 and acceptance remains pending. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; QUOTA_EXCEEDED is a 409 and acceptance remains pending. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listProperties: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                status?: "all" | "current" | "archived";
+            };
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyPage"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createProperty: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertyInput"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            201: {
+                headers: {
+                    /** @description Strong property version. */
+                    ETag?: string;
+                    /** @description Created private property API location. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyRecord"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getProperty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyDetail"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    editProperty: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertyInput"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyRecord"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    archiveProperty: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertyReason"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyRecord"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    restoreProperty: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertyReason"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyRecord"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reviewPropertyReadiness: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertyReason"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyDetail"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listPropertySpaces: {
+        parameters: {
+            query?: {
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertySpacePage"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createPropertySpace: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertySpaceInput"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertySpace"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getPropertySpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+                id: string;
+                space: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertySpace"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    editPropertySpace: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+                space: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertySpaceInput"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertySpace"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    changePropertySpaceState: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+                space: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertySpaceState"];
+            };
+        };
+        responses: {
+            /** @description Server-confirmed, workspace-owner-scoped property result. Draft readiness is not occupancy or publication. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertySpace"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details; stale/missing version, quota, hierarchy, duplicate identifiers and archive blockers remain distinguishable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getWorkspaceSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private dashboard with explicit availability. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionDashboard"];
+                };
+            };
+            /** @description Malformed identifier */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Security policy denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Workspace unavailable; no cross-scope disclosure */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Retryable database/configuration outage */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getUpgradeOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeState"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    quoteSubscriptionUpgrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeQuoteInput"];
+            };
+        };
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeQuote"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    confirmSubscriptionUpgrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeChange"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getSubscriptionUpgrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeChange"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    simulateSubscriptionUpgradePayment: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeOutcome"];
+            };
+        };
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeChange"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getSubscriptionDowngrades: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current durable downgrade state; scheduled does not mean applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeState"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    scheduleSubscriptionDowngrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DowngradeConfirmInput"];
+            };
+        };
+        responses: {
+            /** @description Current durable downgrade state; scheduled does not mean applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeRequest"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reviewSubscriptionDowngrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DowngradePreviewInput"];
+            };
+        };
+        responses: {
+            /** @description Current durable downgrade state; scheduled does not mean applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeReview"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    cancelSubscriptionDowngrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DowngradeCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Current durable downgrade state; scheduled does not mean applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeRequest"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retrySubscriptionDowngrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DowngradeCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Current durable downgrade state; scheduled does not mean applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeRequest"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getSubscriptionCancellations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persisted cancellation review or state. Scheduled is not applied. Requests share the subscription boundary engine; amounts are null for simulated payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeState"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    scheduleSubscriptionCancellation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DowngradeConfirmInput"];
+            };
+        };
+        responses: {
+            /** @description Persisted cancellation review or state. Scheduled is not applied. Requests share the subscription boundary engine; amounts are null for simulated payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeRequest"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reviewSubscriptionCancellation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionCancellationReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Persisted cancellation review or state. Scheduled is not applied. Requests share the subscription boundary engine; amounts are null for simulated payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeReview"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    withdrawSubscriptionCancellation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DowngradeCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Persisted cancellation review or state. Scheduled is not applied. Requests share the subscription boundary engine; amounts are null for simulated payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeRequest"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retrySubscriptionCancellation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DowngradeCommandInput"];
+            };
+        };
+        responses: {
+            /** @description Persisted cancellation review or state. Scheduled is not applied. Requests share the subscription boundary engine; amounts are null for simulated payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DowngradeRequest"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe scope, version, eligibility, pending-change, usage or retryable outage error. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getSubscriptionPaymentRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionPaymentRecovery"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retrySubscriptionPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeChange"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    recordSandboxSubscriptionCallback: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    outcome: "pending" | "paid" | "reversed";
+                };
+            };
+        };
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeChange"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retrySubscriptionActivation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Durable authoritative result; simulation labeled sandbox. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradeChange"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem: scope, validation, stale/missing version, changed quote or provider configuration. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    evaluateWorkspaceCapability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+                capability: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owner-only current snapshot or manager event history. No shared cache. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementEvaluation"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getEffectiveEntitlementSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh authorized snapshot; never shared or used to authorize commands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveEntitlementSnapshot"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getCommunicationUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh authorized snapshot; never shared or used to authorize commands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationUsage"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    queueLocalCommunicationTest: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommunicationTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Durable operation; poll communication usage for outcome */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationOperation"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reconcileLocalCommunication: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommunicationReconcileRequest"];
+            };
+        };
+        responses: {
+            /** @description Durable operation; poll communication usage for outcome */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationReconcileOutcome"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getCommunicationPeriods: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh authorized snapshot; never shared or used to authorize commands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationPeriodPage"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listAmenityTypes: {
+        parameters: {
+            query?: {
+                search?: string;
+                status?: string;
+                category?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh authorized snapshot; never shared or used to authorize commands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmenityPage"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createAmenityType: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                w: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmenityInput"];
+            };
+        };
+        responses: {
+            /** @description Persisted definition; replay returns the same result */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmenityType"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getAmenityDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh authorized snapshot; never shared or used to authorize commands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmenityDetail"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateAmenityType: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                w: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmenityInput"];
+            };
+        };
+        responses: {
+            /** @description Persisted definition; replay returns the same result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmenityType"];
+                };
+            };
+            /** @description Safe problem details */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown capability */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Safe problem details */
             503: {
                 headers: {
                     [name: string]: unknown;

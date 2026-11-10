@@ -21,6 +21,7 @@ export async function api<T>(path: string, options: { method?: 'GET' | 'POST' | 
     try { problem = await response.json(); } catch { /* Never expose proxy HTML or raw server errors. */ }
     throw new ApiError(response.status, problem);
   }
+  if (method !== 'GET') { const workspace=path.match(/^\/workspaces\/([^/]+)/)?.[1]; if(workspace){window.dispatchEvent(new CustomEvent('lmt-entitlements',{detail:workspace}));const channel=new BroadcastChannel('lmt-entitlements');channel.postMessage(workspace);channel.close();} }
   if (response.status === 204) return undefined as T;
   return response.json();
 }

@@ -56,17 +56,19 @@ public class ChallengeService {
  }
  private Challenge create(String sessionId,UUID key,String channel,String destination,String name,String purpose,UUID actor,Integer version){
    String contact=normalize(channel,destination);boolean email=channel.equals("email");
-   if(!config.sandbox)throw new ApiProblem(503,"IDENTITY_UNAVAILABLE","Contact verification is not configured. No code was sent.");
+   if(!config.sandbox&&!(config.live&&purpose.equals("sign_in")))throw new ApiProblem(503,"IDENTITY_UNAVAILABLE","This verification flow is not configured. No code was sent.");
+   if(config.live)lock("live-identity-request-budget");
    var binding=hash(sessionId);lock("challenge:"+channel+":"+contact);lock("challenge-session:"+binding);
    var prior=db.sql("SELECT * FROM auth_challenge WHERE session_hash=:s AND request_key=:k").param("s",binding).param("k",key).query().listOfRows().stream().findFirst();
    if(prior.isPresent()){
-     var row=prior.get();if(!purpose.equals(row.get("purpose"))||!Objects.equals(actor,row.get("link_account_id"))||!Objects.equals(version,row.get("link_profile_version"))||!channel.equals(row.get("channel"))||!contact.equals(row.get(email?"email":"mobile"))||!name.strip().equals(row.get("display_name")))throw new ApiProblem(409,"IDEMPOTENCY_CONFLICT","This request key was already used with different details.");
+     var row=prior.get();if(!config.mode.equals(row.get("identity_mode"))||!purpose.equals(row.get("purpose"))||!Objects.equals(actor,row.get("link_account_id"))||!Objects.equals(version,row.get("link_profile_version"))||!channel.equals(row.get("channel"))||!contact.equals(row.get(email?"email":"mobile"))||!name.strip().equals(row.get("display_name")))throw new ApiProblem(409,"IDEMPOTENCY_CONFLICT","This request key was already used with different details.");
      return view(row);
    }
+   if(config.live&&db.sql("SELECT count(*) FROM auth_challenge WHERE identity_mode='live' AND created_at>clock_timestamp()-interval '1 hour'").query(Integer.class).single()>=config.hourlyLimit)throw new ApiProblem(429,"IDENTITY_BUDGET_EXCEEDED","Verification is temporarily at capacity. Try again later.");
    int count=db.sql("SELECT count(*) FROM auth_challenge WHERE ((channel=:channel AND (email=:m OR mobile=:m)) OR session_hash=:s) AND created_at>CURRENT_TIMESTAMP-interval '15 minutes'").param("m",contact).param("channel",channel).param("s",binding).query(Integer.class).single();
    if(count>=5)throw new ApiProblem(429,"CHALLENGE_RATE_LIMIT","Too many code requests. Wait fifteen minutes before trying again.");
    UUID id=UUID.randomUUID();
-   db.sql("INSERT INTO auth_challenge(id,session_hash,channel,mobile,email,display_name,request_key,purpose,link_account_id,link_profile_version,expires_at) VALUES(:id,:s,:channel,:m,:email,:n,:k,:purpose,:actor,:version,CURRENT_TIMESTAMP+interval '5 minutes')").param("id",id).param("s",binding).param("channel",channel).param("m",email?null:contact,java.sql.Types.VARCHAR).param("email",email?contact:null,java.sql.Types.VARCHAR).param("n",name.strip()).param("k",key).param("purpose",purpose).param("actor",actor,java.sql.Types.OTHER).param("version",version,java.sql.Types.INTEGER).update();
+   db.sql("INSERT INTO auth_challenge(id,session_hash,channel,mobile,email,display_name,request_key,purpose,link_account_id,link_profile_version,expires_at,identity_mode) VALUES(:id,:s,:channel,:m,:email,:n,:k,:purpose,:actor,:version,CURRENT_TIMESTAMP+interval '5 minutes',:mode)").param("mode",config.mode).param("id",id).param("s",binding).param("channel",channel).param("m",email?null:contact,java.sql.Types.VARCHAR).param("email",email?contact:null,java.sql.Types.VARCHAR).param("n",name.strip()).param("k",key).param("purpose",purpose).param("actor",actor,java.sql.Types.OTHER).param("version",version,java.sql.Types.INTEGER).update();
    db.sql("INSERT INTO auth_delivery(challenge_id) VALUES(:id)").param("id",id).update();
    audit.record(null,null,"identity.challenge_requested",id);
    return status(id,sessionId);
@@ -74,7 +76,7 @@ public class ChallengeService {
  private Challenge view(Map<String,Object> r){
    Instant expiry=((java.sql.Timestamp)r.get("expires_at")).toInstant();
    String status=(Boolean)r.get("consumed")?"consumed":expiry.isBefore(Instant.now())?"expired":((Number)r.get("attempts")).intValue()>=5?"locked":"pending";
-   var mobile=(String)r.get("mobile");return new Challenge((UUID)r.get("id"),status,"sandbox",mobile==null?maskEmail((String)r.get("email")):"+91••••••"+mobile.substring(mobile.length()-4),expiry);
+   var mobile=(String)r.get("mobile");return new Challenge((UUID)r.get("id"),status,(String)r.get("identity_mode"),mobile==null?maskEmail((String)r.get("email")):"+91••••••"+mobile.substring(mobile.length()-4),expiry);
  }
  @Transactional(readOnly=true) public Challenge status(UUID id,String sessionId){
    var row=db.sql("SELECT * FROM auth_challenge WHERE id=:id AND session_hash=:s").param("id",id).param("s",hash(sessionId)).query().listOfRows().stream().findFirst().orElseThrow(()->new ApiProblem(404,"CHALLENGE_NOT_FOUND","Challenge is unavailable. Request a new code."));
@@ -85,11 +87,12 @@ public class ChallengeService {
  }
  // Expected verification failures commit attempt/consumption evidence; infrastructure failures roll back.
  @Transactional(noRollbackFor=ApiProblem.class) public VerifiedAccount verify(UUID id,String sessionId,String submitted){
-   if(!config.sandbox)throw new ApiProblem(503,"IDENTITY_UNAVAILABLE","Contact verification is not configured.");
+   if(!config.sandbox&&!config.live)throw new ApiProblem(503,"IDENTITY_UNAVAILABLE","Contact verification is not configured.");
    var contact=db.sql("SELECT channel,coalesce(email,mobile) AS destination FROM auth_challenge WHERE id=:id AND session_hash=:s AND purpose='sign_in'").param("id",id).param("s",hash(sessionId)).query().listOfRows();
    if(contact.isEmpty())throw new ApiProblem(404,"CHALLENGE_NOT_FOUND","Sign-in challenge is unavailable.");
    lock("challenge:"+contact.getFirst().get("channel")+":"+contact.getFirst().get("destination"));
    var row=db.sql("SELECT * FROM auth_challenge WHERE id=:id AND session_hash=:s AND purpose='sign_in' FOR UPDATE").param("id",id).param("s",hash(sessionId)).query().listOfRows().stream().findFirst().orElseThrow(()->new ApiProblem(404,"CHALLENGE_NOT_FOUND","Challenge is unavailable."));
+   if(!config.mode.equals(row.get("identity_mode")))throw new ApiProblem(403,"IDENTITY_MODE_CONFLICT","Request a new code in this environment.");
    if(!view(row).status().equals("pending"))throw new ApiProblem(409,"CHALLENGE_UNUSABLE","This code expired, was used, or reached its attempt limit. Request a new code.");
    db.sql("UPDATE auth_challenge SET attempts=attempts+1 WHERE id=:id").param("id",id).update();
    if(!MessageDigest.isEqual(code(id).getBytes(StandardCharsets.UTF_8),submitted.getBytes(StandardCharsets.UTF_8))){audit.record(null,null,"identity.challenge_rejected",id);throw new ApiProblem(422,"INVALID_CODE","The code is incorrect.","code");}
@@ -97,9 +100,9 @@ public class ChallengeService {
    var accountId=UUID.randomUUID();
    boolean email="email".equals(row.get("channel"));String column=email?"email":"mobile";
    // Column is selected exclusively by the stored allowlisted channel, never supplied SQL.
-   db.sql("INSERT INTO user_account(id,"+column+",display_name,identity_mode) VALUES(:id,:contact,:n,'sandbox') ON CONFLICT("+column+") DO NOTHING").param("id",accountId).param("contact",row.get(column)).param("n",row.get("display_name")).update();
+   db.sql("INSERT INTO user_account(id,"+column+",display_name,identity_mode) VALUES(:id,:contact,:n,:mode) ON CONFLICT("+column+") DO NOTHING").param("mode",config.mode).param("id",accountId).param("contact",row.get(column)).param("n",row.get("display_name")).update();
    var account=db.sql("SELECT id,display_name,identity_mode FROM user_account WHERE "+column+"=:contact").param("contact",row.get(column)).query((rs,n)->new Account(rs.getObject(1,UUID.class),rs.getString(2),rs.getString(3))).single();
-   if(!account.mode().equals("sandbox"))throw new ApiProblem(403,"IDENTITY_MODE_CONFLICT","This identity cannot be accessed through sandbox verification.");
+   if(!account.mode().equals(config.mode))throw new ApiProblem(403,"IDENTITY_MODE_CONFLICT","This contact belongs to a different identity environment.");
    audit.record(account.id(),null,"identity.proof_consumed",id);lock("account-session-generation:"+account.id());int generation=db.sql("SELECT auth_generation FROM user_account WHERE id=:id AND (auth_recovered_at IS NULL OR auth_recovered_at<:issued)").param("id",account.id()).param("issued",row.get("created_at")).query(Integer.class).optional().orElseThrow(()->new ApiProblem(409,"AUTHENTICATION_STALE","Account recovery invalidated this code. Request a new code."));return new VerifiedAccount(account,generation);
  }
  @Transactional(readOnly=true) public Account account(UUID id){return db.sql("SELECT id,display_name,identity_mode FROM user_account WHERE id=:id").param("id",id).query((rs,n)->new Account(rs.getObject(1,UUID.class),rs.getString(2),rs.getString(3))).optional().orElseThrow(()->new ApiProblem(401,"UNAUTHENTICATED","Sign in again."));}

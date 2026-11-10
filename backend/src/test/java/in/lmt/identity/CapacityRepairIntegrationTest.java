@@ -119,4 +119,10 @@ class CapacityRepairIntegrationTest {
   }
   sql("UPDATE workspace_member SET active=false WHERE workspace_id='"+w+"' AND account_id='"+actor(coOwner)+"'");assertThat(coOwner.get(h).statusCode()).isEqualTo(404);
  }
+ @Test void retainedOverLimitMembershipEvidenceCanStillBeReconciled()throws Exception{
+  Browser owner=new Browser();owner.login();String w=workspace(owner);grant(owner,w);sql("UPDATE workspace_grant SET allowance=5 WHERE workspace_id='"+w+"' AND resource='managers'");
+  for(int n=0;n<2;n++){Browser manager=new Browser();String mobile="+919"+mobiles.incrementAndGet();manager.login(mobile);var created=owner.post("/workspaces/"+w+"/invitations",json.writeValueAsString(Map.of("mobile",mobile)),UUID.randomUUID().toString());assertThat(created.statusCode()).isEqualTo(201);JsonNode invite=null;for(var i:parse(manager.get("/me/invitations")).get("items"))invite=i;assertThat(invite).isNotNull();assertThat(manager.send("POST","/me/invitations/"+invite.get("id").asString()+"/accept","{}",UUID.randomUUID().toString(),manager.csrf,"http://localhost:3000",invite.get("etag").asString()).statusCode()).isEqualTo(200);}
+  // Model a lower allowance plus counter drift; membership/allocation/event evidence remains intact.
+  sql("UPDATE workspace_grant SET allowance=1,used=0 WHERE workspace_id='"+w+"' AND resource='managers'");var preview=parse(owner.get(path(w)));assertThat(preview.get("repairable").asBoolean()).isTrue();assertThat(preview.get("targetUsed").asInt()).isEqualTo(2);assertThat(repair(owner,w,preview.get("etag").asString(),UUID.randomUUID().toString()).statusCode()).isEqualTo(200);assertThat(count("SELECT count(*) FROM workspace_member WHERE workspace_id='"+w+"' AND active AND role='MANAGER'")).isEqualTo(2);assertThat(count("SELECT used FROM workspace_grant WHERE workspace_id='"+w+"' AND resource='managers'")).isEqualTo(2);
+ }
 }

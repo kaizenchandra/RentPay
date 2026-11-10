@@ -18,6 +18,7 @@ x-core: &core
     LMT_SESSION_KEY_FILE: /run/secrets/session_key
     SPRING_PROFILES_ACTIVE: local
     LMT_CONTAINER_SANDBOX: 'true'
+    LMT_IDENTITY_LOCAL_CONTAINERS: 'true'
     LMT_SANDBOX_INBOX: /data/otp-inbox
     LMT_SECURITY_ALLOWED_ORIGINS: http://localhost:3100,http://127.0.0.1:3100
   secrets: [runtime_password, session_key]
@@ -26,6 +27,37 @@ x-core: &core
     db: {condition: service_healthy}
     migrate: {condition: service_completed_successfully}
 services:
+  mailpit:
+    image: axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498
+    restart: unless-stopped
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: '1000'
+      MP_MAX_AGE: 1h
+      MP_DISABLE_VERSION_CHECK: 'true'
+    volumes: [mailpit_data:/data]
+    ports: ['127.0.0.1:18025:8025']
+    networks: [private, inbox]
+    healthcheck:
+      test: [CMD, /mailpit, readyz]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  sms-inbox:
+    image: lmt-sms-inbox:local
+    build: {context: ../.., dockerfile: infra/sms-inbox/Dockerfile}
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes: [sms_data:/data]
+    ports: ['127.0.0.1:8026:8080']
+    networks: [private, inbox]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
   db:
     image: postgres:17.11@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
     restart: unless-stopped
@@ -116,10 +148,13 @@ services:
       timeout: 3s
       retries: 10
 networks:
+  inbox: {}
   ingress: {}
   private:
     internal: true
 volumes:
+  mailpit_data:
+  sms_data:
   postgres_data:
   private_files:
 secrets:

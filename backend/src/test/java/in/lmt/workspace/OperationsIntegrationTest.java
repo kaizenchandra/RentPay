@@ -19,7 +19,7 @@ class OperationsIntegrationTest {
  static final PostgreSQLContainer db=new PostgreSQLContainer("postgres:17.11");static final AtomicInteger mobiles=new AtomicInteger(300000000);static final Path inbox;
  static{try{inbox=Files.createTempDirectory("lmt-operation-inbox-");db.start();try(var c=DriverManager.getConnection(db.getJdbcUrl(),db.getUsername(),db.getPassword());var s=c.createStatement()){s.execute("CREATE ROLE lmt_runtime LOGIN PASSWORD 'runtime_test'");}}catch(Exception e){throw new ExceptionInInitializerError(e);}}
  @DynamicPropertySource static void config(DynamicPropertyRegistry r){r.add("spring.datasource.url",db::getJdbcUrl);r.add("spring.datasource.username",()->"lmt_runtime");r.add("spring.datasource.password",()->"runtime_test");r.add("spring.flyway.user",db::getUsername);r.add("spring.flyway.password",db::getPassword);r.add("lmt.identity.sandbox-secret",()->"test-operation-secret-longer-than-32-characters");r.add("lmt.identity.inbox",inbox::toString);r.add("lmt.identity.delivery-delay-ms",()->"25");r.add("lmt.workspace.initial-delay-ms",()->"3600000");}
- @LocalServerPort int port;@Autowired WelcomeOperations operations;@Autowired WorkspaceWelcomeDelivery worker;
+ @LocalServerPort int port;@Autowired in.lmt.identity.NotificationPreferences preferences;@Autowired WelcomeOperations operations;@Autowired WorkspaceWelcomeDelivery worker;
  final ObjectMapper json=new ObjectMapper();
  class Browser {
   final HttpClient client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();String csrf;
@@ -71,5 +71,54 @@ class OperationsIntegrationTest {
   assertThat(b.get("/operations/"+id).get("operation").get("status").asString()).isEqualTo("delivered");
   for(UUID w:blocked)assertThat(count("SELECT count(*) FROM workspace_outbox WHERE scope_id='"+w+"' AND status='blocked' AND last_code='AUTHORITY_REVOKED'")).isEqualTo(1);
   assertThat(count("SELECT count(*) FROM workspace_notification WHERE event_id='"+id+"'")).isEqualTo(1);
+ }
+
+ @Test void optionalAccountCopyRechecksConsentAndNeverBackfills()throws Exception{
+  Browser b=new Browser();b.login();UUID actor=UUID.fromString(b.get("/auth/session").get("account").get("id").asString());
+  UUID old=b.provision(),oldEvent=event(b,old);var enabled=preferences.update(actor,UUID.randomUUID(),preferences.get(actor).etag(),true);
+  var oldClaim=operations.claim().stream().filter(c->c.workspace().equals(old)).findFirst().orElseThrow();operations.complete(oldClaim);
+  assertThat(count("SELECT count(*) FROM account_notification WHERE source_event_id='"+oldEvent+"'")).isZero();
+  UUID ready=b.provision(),readyEvent=event(b,ready);var claim=operations.claim().stream().filter(c->c.workspace().equals(ready)).findFirst().orElseThrow();operations.complete(claim);operations.complete(claim);
+  assertThat(count("SELECT count(*) FROM account_notification WHERE source_event_id='"+readyEvent+"' AND account_id='"+actor+"' AND category='workspace_setup'")).isEqualTo(1);
+  UUID pending=b.provision(),pendingEvent=event(b,pending);var held=operations.claim().stream().filter(c->c.workspace().equals(pending)).findFirst().orElseThrow();preferences.update(actor,UUID.randomUUID(),enabled.etag(),false);operations.complete(held);
+  assertThat(count("SELECT count(*) FROM account_notification WHERE source_event_id='"+pendingEvent+"'")).isZero();assertThat(count("SELECT count(*) FROM workspace_notification WHERE event_id='"+pendingEvent+"'")).isEqualTo(1);
+  assertThat(count("SELECT count(*) FROM domain_audit WHERE actor_id='"+actor+"' AND action='notification.workspace_setup_suppressed'")).isEqualTo(2);
+ }
+
+ @Test void personalDeliveryQueueIsRecipientScopedPagedAndConsentBound()throws Exception{
+  Browser owner=new Browser(),other=new Browser(),anonymous=new Browser();owner.login();other.login();
+  UUID actor=UUID.fromString(owner.get("/auth/session").get("account").get("id").asString());
+  assertThat(anonymous.send("/me/notification-deliveries",null,null,null).statusCode()).isEqualTo(401);
+  owner.provision();assertThat(owner.get("/me/notification-deliveries").get("totalMatching").asInt()).isZero();
+  preferences.update(actor,UUID.randomUUID(),preferences.get(actor).etag(),true);
+  UUID w=owner.provision(),id=event(owner,w);
+  sql("INSERT INTO workspace_outbox(event_id,actor_id,event_type,aggregate_id,scope_id,correlation_id,causation_id) SELECT gen_random_uuid(),actor_id,event_type,aggregate_id,scope_id,gen_random_uuid(),gen_random_uuid() FROM workspace_outbox CROSS JOIN generate_series(1,25) WHERE event_id='"+id+"'");
+  var first=owner.get("/me/notification-deliveries");assertThat(first.get("totalMatching").asInt()).isEqualTo(26);assertThat(first.get("items").size()).isEqualTo(25);
+  String cursor=first.get("page").get("nextCursor").asString();var second=owner.get("/me/notification-deliveries?cursor="+cursor);assertThat(second.get("items").size()).isEqualTo(1);
+  var ids=new HashSet<String>();first.get("items").forEach(n->ids.add(n.get("id").asString()));assertThat(ids.add(second.get("items").get(0).get("id").asString())).isTrue();
+  assertThat(other.get("/me/notification-deliveries").get("totalMatching").asInt()).isZero();assertThat(other.send("/me/notification-deliveries?cursor="+cursor,null,null,null).statusCode()).isEqualTo(422);
+  assertThat(owner.send("/me/notification-deliveries?cursor=bad",null,null,null).statusCode()).isEqualTo(422);
+  sql("UPDATE workspace_member SET active=false WHERE workspace_id='"+w+"'");assertThat(owner.get("/me/notification-deliveries").get("totalMatching").asInt()).isZero();
+  sql("UPDATE workspace_member SET active=true WHERE workspace_id='"+w+"'");
+  sql("UPDATE workspace_outbox SET status='delivered' WHERE scope_id='"+w+"'");assertThat(owner.get("/me/notification-deliveries").get("totalMatching").asInt()).isZero();
+  sql("UPDATE workspace_outbox SET status='failed' WHERE scope_id='"+w+"'");assertThat(owner.get("/me/notification-deliveries").get("totalMatching").asInt()).isEqualTo(26);
+  preferences.update(actor,UUID.randomUUID(),preferences.get(actor).etag(),false);assertThat(owner.get("/me/notification-deliveries").get("totalMatching").asInt()).isZero();
+ }
+ @Test void quietDeferralsAreDurableAndDoNotExhaustFailureBudget()throws Exception{
+  Browser b=new Browser();b.login();UUID actor=UUID.fromString(b.get("/auth/session").get("account").get("id").asString());
+  var now=java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));var format=java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+  preferences.update(actor,UUID.randomUUID(),preferences.get(actor).etag(),true,true,now.minusHours(1).format(format),now.plusHours(1).format(format));
+  UUID w=b.provision(),id=event(b,w);
+  for(int i=0;i<7;i++){
+   sql("UPDATE workspace_outbox SET next_attempt_at=CURRENT_TIMESTAMP WHERE event_id='"+id+"'");
+   var claim=operations.claim().stream().filter(c->c.workspace().equals(w)).findFirst().orElseThrow();operations.complete(claim);
+   assertThat(count("SELECT count(*) FROM workspace_outbox WHERE event_id='"+id+"' AND status='pending' AND last_code='QUIET_HOURS_DEFERRED' AND cycle_attempts=0 AND next_attempt_at>CURRENT_TIMESTAMP AND next_attempt_at<=CURRENT_TIMESTAMP+interval '61 seconds'")).isEqualTo(1);
+  }
+  assertThat(count("SELECT count(*) FROM workspace_notification WHERE event_id='"+id+"'")).isEqualTo(1);assertThat(count("SELECT count(*) FROM account_notification WHERE source_event_id='"+id+"'")).isZero();
+  assertThat(count("SELECT count(*) FROM operation_attempt WHERE event_id='"+id+"' AND outcome='quiet_hours_deferred'")).isEqualTo(7);
+  assertThat(b.get("/me/notification-deliveries").get("items").get(0).get("lastCode").asString()).isEqualTo("QUIET_HOURS_DEFERRED");
+  preferences.update(actor,UUID.randomUUID(),preferences.get(actor).etag(),true,false,"22:00","07:00");sql("UPDATE workspace_outbox SET next_attempt_at=CURRENT_TIMESTAMP WHERE event_id='"+id+"'");
+  var ready=operations.claim().stream().filter(c->c.workspace().equals(w)).findFirst().orElseThrow();operations.complete(ready);operations.complete(ready);
+  assertThat(count("SELECT count(*) FROM account_notification WHERE source_event_id='"+id+"'")).isEqualTo(1);assertThat(b.get("/operations/"+id).get("operation").get("status").asString()).isEqualTo("delivered");
  }
 }

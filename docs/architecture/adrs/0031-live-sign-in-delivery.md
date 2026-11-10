@@ -1,0 +1,17 @@
+# ADR 0031: Live SMS/email sign-in with durable provider submission
+
+Accepted as an implementation default, 2026-11-09. Live provider activation remains unverified until operator credentials/senders/TLS are supplied. AUTH-001 / MARKET-001 / FS-01/22 remain Partial.
+
+The old identity path was intentionally sandbox-only, including session invalidation outside sandbox. Add explicit live mode for sign-in/registration only. Keep all earlier sandbox data tagged and prevent cross-mode challenge/account/session authentication. No automatic account conversion or merge. Live recovery/linking and workspace provisioning retain existing unavailable gates; no complete live tenancy product is implied.
+
+Twilio Programmable Messaging and Resend are implemented with Java's existing HTTP client; no SDK or dependency changes. Runtime endpoints are fixed. Requests contain only the normalized destination and OTP template content; bounded response reads, timeouts and disabled redirects limit untrusted provider handling. Approved sender/template setup is configuration, not invented evidence. Credentials are worker-only secrets; a separate strong OTP key and configured hourly challenge ceiling are required. Browser origins must be HTTPS; Secure/HttpOnly host cookies, CSRF and session registry checks remain authoritative.
+
+V35 tags challenge identity mode and extends the delivery outbox with dispatch fencing, reference and sanitized outcome. Request creation and audit commit before the worker claims dispatch intent. Provider network calls run outside database transactions. Provider acceptance is explicitly different from delivery. API statuses preserve pending, dispatching, accepted, failed and unknown states. Correct code possession is checked locally with existing expiry/attempt constraints and establishes a live account/session only in live mode.
+
+Resend submissions use stable per-challenge idempotency keys. Retry-safe failures have bounded backoff/jitter and at most three submissions. Ambiguous SMS outcomes are never blindly retried; stale dispatch leases become unknown, with operator/provider-log reconciliation required. No callback endpoint is introduced or unsigned callback trusted. Carrier delivery receipts and reconciliation UI remain pending. Provider references are private; raw provider responses/OTP values are not logged.
+
+The public identity-configuration endpoint drives UI messaging and availability. Sandbox keeps the private inbox banner; live sign-in shows delivery guidance and received-code entry. Returning users retain the account selected by the verified contact. Account registration and sign-in share the same proof, not implicit email/mobile linking.
+
+An opt-in Compose overlay uses a separate project/volumes, TLS ingress and worker-only egress/provider secrets. It does not start without required files. Existing default Compose stays sandbox-only. Live configuration syntax was checked, but no live stack was started with real providers because credentials/certificates/approvals were not supplied.
+
+Tests: HTTPS API + PostgreSQL + actual adapters pointed at isolated HTTP fixtures for both channels; Secure/HttpOnly sessions and challenge isolation; lost SMS dispatch remains unknown; provider rejection, ambiguous outcomes and email idempotency; sandbox browser/login/contact regression. Fixtures are not real carrier/mailbox delivery evidence. See `infra/compose/LIVE-IDENTITY.md` for activation and actual acceptance gate.

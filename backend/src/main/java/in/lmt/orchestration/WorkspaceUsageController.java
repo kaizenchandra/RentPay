@@ -10,9 +10,12 @@ import org.springframework.transaction.annotation.*;
 @RestController @RequestMapping("/api/v1/workspaces/{w}")
 @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
 public class WorkspaceUsageController {
- private final WorkspaceCommands authority;private final UsageQueries usage;private final CapacityRepairHistory repairs;
- public WorkspaceUsageController(WorkspaceCommands authority,UsageQueries usage,CapacityRepairHistory repairs){this.authority=authority;this.usage=usage;this.repairs=repairs;}
+ private final in.lmt.commercial.EntitlementSnapshots snapshots;private final in.lmt.commercial.Entitlements entitlements;private final WorkspaceCommands authority;private final UsageQueries usage;private final CapacityRepairHistory repairs;
+ public WorkspaceUsageController(WorkspaceCommands authority,UsageQueries usage,CapacityRepairHistory repairs,in.lmt.commercial.Entitlements entitlements,in.lmt.commercial.EntitlementSnapshots snapshots){this.snapshots=snapshots;this.entitlements=entitlements;this.authority=authority;this.usage=usage;this.repairs=repairs;}
  @GetMapping({"/entitlements","/usage"}) public UsageQueries.Snapshot snapshot(Authentication a,@PathVariable UUID w){authority.requireOwner(w,UUID.fromString(a.getName()));return usage.snapshot(w);}
+ @GetMapping("/entitlements/snapshot") public in.lmt.commercial.EntitlementSnapshots.Snapshot effective(Authentication a,@PathVariable UUID w){UUID actor=UUID.fromString(a.getName());authority.requireMember(w,actor);return snapshots.read(w,actor);}
+ public record Evaluation(UUID workspaceId,java.time.Instant asOf,in.lmt.commercial.Entitlements.Decision decision){}
+ @GetMapping("/entitlements/{capability}") public Evaluation evaluate(Authentication a,@PathVariable UUID w,@PathVariable String capability){authority.requireMember(w,UUID.fromString(a.getName()));return new Evaluation(w,java.time.Instant.now(),entitlements.evaluate(w,capability));}
  @GetMapping("/usage/history") public UsageQueries.History history(Authentication a,@PathVariable UUID w,@RequestParam(required=false)LocalDate from,@RequestParam(required=false)LocalDate to,@RequestParam(required=false)String cursor){UUID actor=UUID.fromString(a.getName());authority.requireOwner(w,actor);return usage.history(actor,w,from,to,cursor);}
  @GetMapping("/usage/repairs") public CapacityRepairHistory.History repairs(Authentication a,@PathVariable UUID w,@RequestParam(required=false)LocalDate from,@RequestParam(required=false)LocalDate to,@RequestParam(required=false)String cursor){UUID actor=UUID.fromString(a.getName());authority.requireOwner(w,actor);return repairs.read(actor,w,from,to,cursor);}
 }

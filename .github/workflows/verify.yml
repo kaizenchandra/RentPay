@@ -56,7 +56,7 @@ jobs:
       - run: ./scripts/compose-local.sh up -d --wait --wait-timeout 180
       - run: npm ci && npx playwright install --with-deps chromium
         working-directory: web
-      - run: node web/tests/compose-smoke.mjs
+      - run: node web/tests/compose-smoke.mjs && node web/tests/contact-removal.mjs && node web/tests/notification-inbox.mjs && node web/tests/notification-preferences.mjs && node web/tests/quiet-hours.mjs && node web/tests/signin-channels.mjs && node web/tests/local-inbox-recovery.mjs && node web/tests/workspace-access-notices.mjs && node web/tests/invitation-expiry.mjs && node web/tests/property-management.mjs && node web/tests/subscription-dashboard.mjs && node web/tests/subscription-upgrade.mjs && node web/tests/subscription-downgrade.mjs && node web/tests/subscription-cancellation.mjs && node web/tests/subscription-payment-recovery.mjs && node web/tests/subscription-settlement-recovery.mjs && node web/tests/entitlement-evaluation.mjs && node web/tests/communication-allowances.mjs && node web/tests/communication-recovery.mjs && node web/tests/amenity-catalog.mjs
       - if: failure()
         run: ./scripts/compose-local.sh logs --tail=150
       - if: always()

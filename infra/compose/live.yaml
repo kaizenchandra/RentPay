@@ -1,0 +1,44 @@
+# Opt-in live sign-in pilot. Requires TLS, sender approval and credentials; never the local default.
+name: lmt-live
+services:
+  mailpit:
+    profiles: [local-inboxes]
+  sms-inbox:
+    profiles: [local-inboxes]
+  api:
+    env_file: ../../.local/live/runtime.env
+    environment:
+      SPRING_PROFILES_ACTIVE: live
+      LMT_CONTAINER_SANDBOX: 'false'
+      LMT_IDENTITY_LOCAL_CONTAINERS: 'false'
+      LMT_SECURITY_ALLOWED_ORIGINS: ${LMT_LIVE_ORIGIN:?Set the exact HTTPS origin}
+      LMT_PUBLIC_ORIGINS: ${LMT_LIVE_ORIGIN:?Set the exact HTTPS origin}
+  worker:
+    env_file: ../../.local/live/runtime.env
+    environment:
+      SPRING_PROFILES_ACTIVE: live
+      LMT_CONTAINER_SANDBOX: 'false'
+      LMT_IDENTITY_LOCAL_CONTAINERS: 'false'
+      LMT_SECURITY_ALLOWED_ORIGINS: ${LMT_LIVE_ORIGIN:?Set the exact HTTPS origin}
+      LMT_PUBLIC_ORIGINS: ${LMT_LIVE_ORIGIN:?Set the exact HTTPS origin}
+      TWILIO_AUTH_TOKEN_FILE: /run/secrets/twilio_auth_token
+      RESEND_API_KEY_FILE: /run/secrets/resend_api_key
+    secrets: [runtime_password, session_key, twilio_auth_token, resend_api_key]
+    networks: [private, delivery]
+  edge:
+    ports: !override ['127.0.0.1:3443:8443']
+    volumes: !override ['./nginx-live.conf:/etc/nginx/nginx.conf:ro']
+    secrets: [tls_certificate, tls_key]
+    healthcheck:
+      test: [CMD, wget, --no-check-certificate, -q, -O, /dev/null, https://127.0.0.1:8443/healthz]
+networks:
+  delivery: {}
+secrets:
+  bootstrap_password: {file: ../../.local/live/bootstrap_password}
+  migration_password: {file: ../../.local/live/migration_password}
+  runtime_password: {file: ../../.local/live/runtime_password}
+  session_key: {file: ../../.local/live/session_key}
+  twilio_auth_token: {file: ../../.local/live/twilio_auth_token}
+  resend_api_key: {file: ../../.local/live/resend_api_key}
+  tls_certificate: {file: ../../.local/live/tls.crt}
+  tls_key: {file: ../../.local/live/tls.key}

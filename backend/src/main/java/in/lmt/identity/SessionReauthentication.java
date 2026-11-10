@@ -14,6 +14,7 @@ public class SessionReauthentication {
  private final JdbcClient db;private final ChallengeService challenges;private final IdentityConfig config;private final Audit audit;
  public SessionReauthentication(JdbcClient db,ChallengeService challenges,IdentityConfig config,Audit audit){this.db=db;this.challenges=challenges;this.config=config;this.audit=audit;}
  private UUID session(UUID actor,String token){
+  db.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))").param("key","account-session-generation:"+actor).query().singleRow();
   if(!config.sandbox)throw new ApiProblem(503,"IDENTITY_UNAVAILABLE","Contact proof is not configured for this environment.");
   db.sql("SELECT set_config('lmt.account_id',:a,true)").param("a",actor.toString()).query().singleRow();
   return db.sql("SELECT id FROM account_session WHERE account_id=:a AND token_hash=:h AND revoked_at IS NULL FOR UPDATE").param("a",actor).param("h",ChallengeService.hash(token)).query(UUID.class).optional().orElseThrow(()->new ApiProblem(401,"UNAUTHENTICATED","Sign in again."));
@@ -40,7 +41,7 @@ public class SessionReauthentication {
   db.sql("UPDATE auth_challenge SET attempts=attempts+1 WHERE id=:id").param("id",id).update();
   if(!MessageDigest.isEqual(challenges.code(id).getBytes(StandardCharsets.UTF_8),code.getBytes(StandardCharsets.UTF_8))){audit.record(actor,null,"identity.reauthentication_rejected",id);throw new ApiProblem(422,"INVALID_CODE","The code is incorrect.","code");}
   String rotated=rotate.get();
-  Instant at=db.sql("UPDATE account_session SET token_hash=:h,authenticated_at=clock_timestamp(),version=version+1 WHERE id=:id RETURNING authenticated_at").param("h",ChallengeService.hash(rotated)).param("id",registry).query(java.time.OffsetDateTime.class).single().toInstant();
+  Instant at=db.sql("UPDATE account_session SET token_hash=:h,authenticated_at=clock_timestamp(),proof_channel=:channel,proof_profile_version=:profileVersion,version=version+1 WHERE id=:id RETURNING authenticated_at").param("h",ChallengeService.hash(rotated)).param("channel",channel).param("profileVersion",a.get("version")).param("id",registry).query(java.time.OffsetDateTime.class).single().toInstant();
   db.sql("UPDATE auth_challenge SET consumed=true WHERE id=:id").param("id",id).update();audit.record(actor,null,"identity.reauthenticated",id);
   db.sql("INSERT INTO account_notification(id,account_id,message) VALUES(:id,:a,'Your current browser session was verified again. Review account security if this was unexpected.')").param("id",UUID.randomUUID()).param("a",actor).update();return new Result("reauthenticated",at);
  }

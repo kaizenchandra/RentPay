@@ -6,13 +6,17 @@ export function useUnsaved(dirty: boolean) {
  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(enabled.current){e.preventDefault();e.returnValue='';}};const clear=()=>{enabled.current=false;};window.addEventListener('beforeunload',warn);window.addEventListener('lmt-clear-drafts',clear);return()=>{window.removeEventListener('beforeunload',warn);window.removeEventListener('lmt-clear-drafts',clear);};},[]);
  return ()=>{enabled.current=false;};
 }
-export function ErrorSummary({error}:{error:Error|null}) {
+export function ErrorSummary({error,fieldIds}:{error:Error|null;fieldIds?:Record<string,string>}) {
  const ref=useRef<HTMLDivElement>(null);
  useEffect(()=>{if(error)ref.current?.focus();},[error]);
  if(!error)return null;
- return <div className="form-error" role="alert" tabIndex={-1} ref={ref}><strong>We couldn’t complete that step.</strong><p>{error.message}</p>{error instanceof ApiError && (error.status===401||error.problem.code==='REAUTHENTICATION_REQUIRED')?<a href={error.status===401?'/login':'/account/reauthenticate'}>{error.status===401?'Sign in again':'Verify your current session'}</a>:null}{error instanceof ApiError && error.problem.fieldErrors?.map(f=><p key={f.field}><a href={`#${f.field.replace(/^profile\./,'').replace('consentIds','acknowledged')}`}>{f.message}</a></p>)}</div>;
+ return <div className="form-error" role="alert" tabIndex={-1} ref={ref}><strong>We couldn’t complete that step.</strong><p>{error.message}</p>{error instanceof ApiError && (error.status===401||error.problem.code==='REAUTHENTICATION_REQUIRED')?<a href={error.status===401?'/login':'/account/reauthenticate'}>{error.status===401?'Sign in again':'Verify your current session'}</a>:null}{error instanceof ApiError && error.problem.fieldErrors?.map(f=><p key={f.field}><a href={`#${fieldIds?.[f.field]??f.field.replace(/^profile\./,'').replace('consentIds','acknowledged')}`}>{f.message}</a></p>)}</div>;
 }
-export function SandboxNotice() {return <aside className="notice"><strong>Local sandbox</strong><p>No SMS or email is sent. Codes go to the private test inbox on this computer. Use test details only; no payment is collected.</p></aside>;}
+export function useIdentityConfiguration(){
+ const [configuration,setConfiguration]=useState<Models['IdentityConfiguration']|null>(null);const [error,setError]=useState<Error|null>(null);
+ useEffect(()=>{const c=new AbortController();api<Models['IdentityConfiguration']>('/auth/configuration',{signal:c.signal}).then(v=>{if(!c.signal.aborted)setConfiguration(v);}).catch(e=>{if(!c.signal.aborted)setError(e);});return()=>c.abort();},[]);return {configuration,error};
+}
+export function SandboxNotice() {const {configuration}=useIdentityConfiguration();return configuration?.mode==='sandbox'?<aside className="notice"><strong>Test environment</strong>{configuration.localContainers?<p>Email codes arrive in <a href="http://localhost:18025" target="_blank" rel="noreferrer">Mailpit email inbox</a>. Mobile codes arrive in the <a href="http://localhost:8026" target="_blank" rel="noreferrer">SMS test inbox</a>. No external email or carrier SMS is sent. Use test details only.</p>:<p>Verification codes are available in the private test inbox, not by SMS or email. Use test details only. No payments are collected.</p>}</aside>:null;}
 export function Logout() {
  const [error,setError]=useState<Error|null>(null);const [busy,setBusy]=useState(false);
  return <><button className="secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await api('/auth/logout',{method:'POST'});announceLogout();window.location.replace('/login');}catch(e){if(e instanceof ApiError&&e.status===401){announceLogout();window.location.replace('/login');}else{setError(e as Error);setBusy(false);}}}}>Sign out</button><ErrorSummary error={error}/></>;

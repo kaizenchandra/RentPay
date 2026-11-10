@@ -14,8 +14,8 @@ public class SandboxDelivery {
  public SandboxDelivery(JdbcClient db,IdentityConfig config,ChallengeService challenges){this.db=db;this.config=config;this.challenges=challenges;}
  @Scheduled(fixedDelayString="${lmt.identity.delivery-delay-ms:1000}") @Transactional
  public void deliver(){
-   if(!config.sandbox)return;
-   var rows=db.sql("SELECT d.challenge_id,c.expires_at FROM auth_delivery d JOIN auth_challenge c ON c.id=d.challenge_id WHERE d.status='pending' AND d.next_attempt_at<=CURRENT_TIMESTAMP ORDER BY c.created_at LIMIT 10 FOR UPDATE OF d SKIP LOCKED").query().listOfRows();
+   if(!config.sandbox||config.localContainers)return;
+   var rows=db.sql("SELECT d.challenge_id,c.expires_at FROM auth_delivery d JOIN auth_challenge c ON c.id=d.challenge_id WHERE c.identity_mode='sandbox' AND d.status='pending' AND d.next_attempt_at<=CURRENT_TIMESTAMP ORDER BY c.created_at LIMIT 10 FOR UPDATE OF d SKIP LOCKED").query().listOfRows();
    for(var row:rows){
     UUID id=(UUID)row.get("challenge_id");String status="delivered";
     if(((java.sql.Timestamp)row.get("expires_at")).toInstant().isBefore(java.time.Instant.now()))status="expired";
@@ -33,7 +33,7 @@ public class SandboxDelivery {
  }
  @Scheduled(fixedDelay=60000)
  public void cleanExpiredInbox(){
-   if(!config.sandbox)return;
+   if(!config.sandbox||config.localContainers)return;
    Path dir=Path.of(config.inbox);
    if(!Files.isDirectory(dir))return;
    try(var files=Files.list(dir)){

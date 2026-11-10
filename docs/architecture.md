@@ -1022,3 +1022,85 @@ WorkspaceMembership/MembershipController retain ownership of invitations and mem
 ### Local container topology
 
 [ADR 0026](architecture/adrs/0026-local-compose-processes.md) defines the six-service local stack. [Compose runbook](../infra/compose/README.md) covers loopback ingress, runtime/migration credential separation, worker scheduling, persistent volumes, health and recovery. It preserves the native database-only setup; it is not production infrastructure.
+
+Contact removal now uses retained-contact, current-profile reauthentication proof and atomic session/proof invalidation; see [ADR 0027](architecture/adrs/0027-retained-contact-removal.md). This remains a local sandbox identity capability.
+
+Dedicated account notification routes reuse account-owned notices and enforce filtered chronological keyset pagination; see [ADR 0028](architecture/adrs/0028-account-notification-inbox.md). Tenant/workspace route placement grants no extra data access.
+
+[ADR 0029](architecture/adrs/0029-enforced-account-notification-preferences.md) adds identity-owned account notification preferences and an explicit delivery interface used by the authorized workspace outbox worker. Personal opt-in copies remain separate from shared workspace messages and mandatory security notices.
+
+[ADR 0030](architecture/adrs/0030-optional-notice-quiet-hours.md) documents optional quiet-hour deferral using the existing workspace outbox: shared notices commit immediately, pending personal copies recheck policy within 60 seconds, and policy waits do not spend failure retries.
+
+[ADR 0031](architecture/adrs/0031-live-sign-in-delivery.md) adds opt-in live sign-in adapters, durable provider submission and mode-bound identities/sessions. Default Compose remains sandbox-only; [live configuration and acceptance gates](../infra/compose/LIVE-IDENTITY.md) are separate from completed fixture verification.
+
+
+## Local container verification delivery — 2026-11-09
+
+AUTH-001 / MARKET-001, FS-01/22: frontend and backend remain **Partial** overall. Compose now routes sandbox email to Mailpit and mobile codes to a dedicated durable SQLite SMS simulator. `/auth/configuration` adds `localContainers` in OpenAPI 0.33.0; login links to the correct inboxes. Durable dispatch, fenced outcome/audit updates and unknown-outcome recovery reuse the identity delivery store; no migration is added. Native private-inbox and opt-in live transport behavior remain separate. See [local inbox runbook](../infra/compose/LOCAL-INBOXES.md). This verifies local transport, not real contact ownership or live provider delivery. INT-03/04/09–12 remain separately tracked; broader phase gates are unchanged.
+
+
+Account pending notification visibility uses the workspace-owned outbox projection and the existing identity preference interface, with no new queue or cross-module writes. OpenAPI 0.34.0 and V36 implement bounded recipient queries. See [ADR 0032](architecture/adrs/0032-personal-pending-notification-deliveries.md).
+
+
+Essential manager access notices use the identity-owned transaction-mandatory interface invoked by authorized workspace membership commands. No second queue or cross-module table writes. V37/OpenAPI 0.35.0 add the category. See [ADR 0033](architecture/adrs/0033-workspace-access-notifications.md).
+
+
+Owner invitation response notices reuse the identity-owned transaction interface with server-derived, currently authorized recipients, deterministic outcome events and audited suppression. V38/OpenAPI 0.36.0 add the category. See [ADR 0034](architecture/adrs/0034-invitation-outcome-notices.md).
+
+
+Manager invitation expiry now uses bounded PostgreSQL reconciliation sharing membership advisory locks, with atomic system audit and an authorized-owner in-app notice. V39 and the Java jobs-only worker preserve existing RLS through a narrow function; no new external service. See [ADR 0035](architecture/adrs/0035-durable-invitation-expiry.md).
+
+
+Expired invitation recovery now uses a versioned/idempotent owner command and a private shared invitation-creation routine. V40 enforces unique same-workspace lineage; existing membership locks and eligibility remain authoritative. See [ADR 0036](architecture/adrs/0036-expired-invitation-replacement.md).
+
+
+Owner-only invitation expiry diagnostics read the existing workspace-owned invitation state at a shared database time and repeatable-read snapshot. No job side effects or new store. See [ADR 0037](architecture/adrs/0037-owner-invitation-expiry-diagnostics.md).
+
+## Implemented property setup boundary — 2026-11-10
+
+See [ADR 0038](architecture/adrs/0038-property-register-and-capacity.md): Java owns private property hierarchy and state transitions; commercial module owns rentable allocations/usage/grants. The Next.js property/unit routes use OpenAPI 0.40.0 through the existing one-origin session/CSRF boundary. V41 adds owner-scoped storage, transactional command recovery and immutable action history. This is draft setup with blockers, not completed authority, asset inventory, occupancy or rental accounting. Full architectural and integration gates remain tracked separately.
+
+## Subscription dashboard projection — 2026-11-10
+
+[ADR 0039](architecture/adrs/0039-subscription-dashboard.md) documents the authorized read-only commercial projection, contracted-plan preservation, repeatable-read consistency, private route/session boundary and explicit availability semantics. Existing subscription/capacity storage remains authoritative; dashboard reads do not introduce accounting mutations or providers.
+
+## Sandbox upgrade transaction — 2026-11-10
+
+[ADR 0040](architecture/adrs/0040-versioned-sandbox-subscription-upgrades.md) documents the commercial-owned quote/change/settlement transaction, V42–43 scope constraints, effective-grant fingerprint, membership/subscription/grant lock order and explicit sandbox-only provider boundary. This extends the subscription projection without adding a competing payment backend. Live callback/outbox dispatch remains pending; no external effects are made by the simulator.
+
+
+## Scheduled subscription downgrades
+
+[ADR 0041](architecture/adrs/0041-scheduled-subscription-downgrades.md) extends commercial with immutable review, boundary scheduling and a leased Java worker. V44 retains excess usage while lowering allowances; atomic capacity writers still guard increases. Central entitlement forecasting, version/fingerprint checks, reauthorization and transactional audit/notification preserve the existing module boundaries. Local paid-to-Free is operational; paid renewal/provider policy remains pending.
+
+
+## Subscription cancellation
+
+[ADR 0042](architecture/adrs/0042-subscription-cancellation.md) adds canonical cancellation endpoints and a dedicated UI using the existing V44 boundary engine. Immutable cancellation policy in the review distinguishes cancellation from ordinary downgrades without another subscription writer or migration. At application, Free continuation, capacity changes, cancellation audit and private notice commit together. Live money/retention policy and full signing continuity remain pending.
+
+
+## Failed subscription payment recovery
+
+[ADR 0043](architecture/adrs/0043-failed-upgrade-payment-recovery.md) adds V45 immutable local retry policy and attempt evidence to the existing commercial upgrade writer. Recovery reads are repeatable-read; retry intent and audit share the serialized subscription transaction. Unknown payments reconcile before another attempt. Upgrade failures preserve existing access and have no renewal grace; the renewal grace/restriction engine and live collection remain pending. No dependency or second payment backend was introduced.
+
+
+## Durable subscription receipt recovery
+
+[ADR 0044](architecture/adrs/0044-durable-subscription-settlement-recovery.md) separates immutable simulated payment receipt from retryable activation through V46 and a leased worker in the existing Java commercial module. Activation reuses the subscription writer, preserves receipt evidence on failure and fences reversals. UI/API distinguish paid evidence from activated grants. Live signed callback integration, renewal races and reversal compensation remain pending.
+
+
+## Central layered entitlement evaluation
+
+[ADR 0045](architecture/adrs/0045-centralized-layered-entitlements.md) extends the commercial engine with V47 immutable local inputs/revocations, active time/plan/mode scope, operational availability and protected corrections. Single-capability reads and domain commands share the evaluator; permissions and quota remain separate. Property mutations now serialize with entitlement configuration under the existing membership lock. Live add-on activation and full product availability remain pending.
+
+Unit quota enforcement now reconciles scoped inventory, allocation mapping, counters and usage evidence under the existing authoritative command/grant locks. Contextual warnings use the private effective snapshot; see [ADR 0047](architecture/adrs/0047-unit-capacity-enforcement.md). V48 strengthens workspace-qualified evidence relationships. Bulk import remains unavailable pending FS-32 reservations and durable row recovery.
+
+Counting definitions are now immutable and workspace-bound (V49), rather than selected globally by newest version. New sandbox workspaces use the independent-item definition; existing bindings remain unchanged. Commands and reconciliation share one quantity function. See [ADR 0048](architecture/adrs/0048-workspace-bound-unit-counting.md).
+
+Workspace communication metering has its own immutable period/metric contracts and durable operation/evidence store (V50), separate from account authentication delivery and subscription payments. A local owner test uses actual Mailpit/SMS-inbox acceptance. Provider effects follow committed intent, and receipt completion serializes with reservations. Unknown outcomes remain held for reconciliation. See [ADR 0049](architecture/adrs/0049-communication-acceptance-metering.md).
+
+## Communication recovery and amenity definitions continuation
+
+V51 adds durable read-only local receipt reconciliation with owner reauthorization, bounded retries and fenced leases; unknown outcomes retain reservations until exact evidence settles them. Historical usage projects original contract periods. See [ADR 0050](architecture/adrs/0050-communication-evidence-recovery.md).
+
+The inventory module owns workspace amenity definitions, retained normalized aliases and immutable version snapshots (V52–53). Configuration is separate from physical assessments and property authority. See [ADR 0051](architecture/adrs/0051-versioned-amenity-catalog.md). OpenAPI 0.53.0 covers both additions with generated frontend contracts.

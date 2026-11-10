@@ -28,7 +28,7 @@ public class CapacityRepairs {
    SELECT (SELECT count(*) FROM workspace_member m WHERE m.workspace_id=:w AND m.active AND m.role='MANAGER' AND NOT EXISTS(SELECT 1 FROM manager_allocation a WHERE a.workspace_id=:w AND a.member_id=m.id AND a.status='committed'))
     +(SELECT count(*) FROM manager_allocation a WHERE a.workspace_id=:w AND a.status='committed' AND NOT EXISTS(SELECT 1 FROM workspace_member m WHERE m.workspace_id=:w AND m.id=a.member_id AND m.active AND m.role='MANAGER'))
    """).param("w",w).query(Long.class).single();
-  boolean sourceValid=mismatch==0&&e.inconsistentAllocations()==0&&e.unmatchedEvents()==0&&e.committedAllocations()==e.eventBalance()&&e.committedAllocations()<=allowance;
+  boolean sourceValid=mismatch==0&&e.inconsistentAllocations()==0&&e.unmatchedEvents()==0&&e.committedAllocations()==e.eventBalance();
   String reason=!sourceValid?"SOURCE_EVIDENCE_INCONSISTENT":used==e.committedAllocations()&&reserved==0?"ALREADY_RECONCILED":"COUNTER_REPAIR_AVAILABLE";
   String tag="\"capacity-"+hash(w+":"+g+":"+e+":"+mismatch)+"\"";
   return new View(w,used,reserved,allowance,e.committedAllocations(),0,reason.equals("COUNTER_REPAIR_AVAILABLE"),reason,revision,tag);

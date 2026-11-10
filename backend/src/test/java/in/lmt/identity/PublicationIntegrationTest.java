@@ -89,7 +89,7 @@ class PublicationIntegrationTest {
   sql("UPDATE plan_activation_review SET expires_at=CURRENT_TIMESTAMP-interval '1 second' WHERE id='"+(ra.statusCode()==200?pa:pb).get("id").asString()+"'");
   var replay=winner.send("POST",endpoint,cmd,key,winner.csrf,"http://localhost:3000",tag);assertThat(replay.statusCode()).isEqualTo(200);assertThat(replay.body()).isEqualTo(ra.statusCode()==200?ra.body():rb.body());
   assertThat(winner.send("POST",endpoint,cmd.replace("Approved","Different"),key,winner.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(409);
-  assertThat(count("SELECT count(*) FROM commercial_plan_capability WHERE plan_version_id='"+id+"'")).isEqualTo(2);
+  assertThat(count("SELECT count(*) FROM ((SELECT policy_version,capability FROM commercial_plan_capability WHERE plan_version_id='"+id+"' EXCEPT SELECT policy_version,capability FROM commercial_plan_capability WHERE plan_version_id='"+free+"') UNION ALL (SELECT policy_version,capability FROM commercial_plan_capability WHERE plan_version_id='"+free+"' EXCEPT SELECT policy_version,capability FROM commercial_plan_capability WHERE plan_version_id='"+id+"')) differences")).isZero();
   assertThat(count("SELECT count(*) FROM domain_audit WHERE action='PLAN_VERSION_PUBLISHED' AND resource_id IN('"+d+"','"+other+"')")).isEqualTo(1);
   assertThat(parse(a.get("/public/plans/FREE")).get("versionId").asString()).isEqualTo(free);
   for(int n=0;n<130&&!parse(a.get("/public/plans/FREE")).get("versionId").asString().equals(id);n++)Thread.sleep(200);

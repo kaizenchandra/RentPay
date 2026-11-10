@@ -23,9 +23,11 @@ class FoundationIntegrationTest {
  static final String free="00000000-0000-4000-8000-000000000006";
  static {try{inbox=Files.createTempDirectory("lmt-test-inbox-");db.start();try(var c=DriverManager.getConnection(db.getJdbcUrl(),db.getUsername(),db.getPassword());var s=c.createStatement()){s.execute("CREATE ROLE lmt_runtime LOGIN PASSWORD 'runtime_test'");}}catch(Exception e){throw new ExceptionInInitializerError(e);}}
  @DynamicPropertySource static void properties(DynamicPropertyRegistry r){
+  r.add("lmt.workspace.expiry-initial-delay-ms",()->"3600000");
   r.add("spring.datasource.url",db::getJdbcUrl);r.add("spring.datasource.username",()->"lmt_runtime");r.add("spring.datasource.password",()->"runtime_test");r.add("spring.flyway.user",db::getUsername);r.add("spring.flyway.password",db::getPassword);
   r.add("lmt.identity.sandbox-secret",()->"test-only-secret-with-more-than-32-characters");r.add("lmt.identity.inbox",inbox::toString);r.add("lmt.identity.delivery-delay-ms",()->"50");r.add("lmt.workspace.delivery-delay-ms",()->"50");
  }
+ @org.springframework.beans.factory.annotation.Autowired in.lmt.workspace.InvitationExpiry expiry;
  @LocalServerPort int port;
  final ObjectMapper json=new ObjectMapper();
  class Browser {
@@ -291,6 +293,74 @@ class FoundationIntegrationTest {
   assertThat(count("SELECT count(*) FROM manager_allocation WHERE workspace_id='"+w+"' AND status='committed'")).isEqualTo(1);
   assertThat(count("SELECT count(*) FROM domain_audit WHERE scope_id='"+w+"' AND action='workspace.member_revoked'")).isEqualTo(1);
  }
+ @Test void invitationExpiryDiagnosticsAreScopedAndReconcileToStoredState()throws Exception{
+  Browser owner=new Browser(),recipient=new Browser(),other=new Browser(),anonymous=new Browser();owner.login();other.login();String mobile="+919"+mobiles.incrementAndGet();recipient.login(mobile);String w=workspace(owner),path="/workspaces/"+w+"/invitation-expiry";
+  assertThat(anonymous.get(path).statusCode()).isEqualTo(401);assertThat(other.get(path).statusCode()).isEqualTo(404);assertThat(recipient.get(path).statusCode()).isEqualTo(404);
+  var empty=owner.get(path);assertThat(empty.statusCode()).isEqualTo(200);assertThat(empty.headers().firstValue("Cache-Control").orElse("")).contains("no-store");assertThat(parse(empty).get("totalInvitations").asInt()).isZero();assertThat(parse(empty).get("oldestOverdueAt").isNull()).isTrue();
+  var invitation=invite(owner,w,mobile);String id=invitation.get("id").asString();var open=parse(owner.get(path));assertThat(open.get("totalInvitations").asInt()).isEqualTo(1);assertThat(open.get("openInvitations").asInt()).isEqualTo(1);assertThat(open.get("awaitingExpiry").asInt()).isZero();
+  sql("UPDATE workspace_invitation SET created_at=CURRENT_TIMESTAMP-interval '2 days',expires_at=CURRENT_TIMESTAMP-interval '1 day' WHERE id='"+id+"'");String otherW=workspace(other);invite(other,otherW,"+919"+mobiles.incrementAndGet());
+  var due=parse(owner.get(path));assertThat(due.get("totalInvitations").asInt()).isEqualTo(1);assertThat(due.get("openInvitations").asInt()).isZero();assertThat(due.get("awaitingExpiry").asInt()).isEqualTo(1);assertThat(due.get("recordedExpired").asInt()).isZero();assertThat(due.get("oldestOverdueSeconds").asLong()).isGreaterThanOrEqualTo(86400);assertThat(due.get("oldestOverdueAt").isNull()).isFalse();
+  expiry.expireDue();var recorded=parse(owner.get(path));assertThat(recorded.get("awaitingExpiry").asInt()).isZero();assertThat(recorded.get("recordedExpired").asInt()).isEqualTo(1);assertThat(recorded.get("oldestOverdueAt").isNull()).isTrue();assertThat(recorded.get("oldestOverdueSeconds").asLong()).isZero();
+  var accepted=invite(owner,w,mobile);assertThat(respond(recipient,accepted,"accept",UUID.randomUUID().toString()).statusCode()).isEqualTo(200);var finalState=parse(owner.get(path));assertThat(finalState.get("totalInvitations").asInt()).isEqualTo(2);assertThat(finalState.get("openInvitations").asInt()).isZero();assertThat(finalState.get("recordedExpired").asInt()).isEqualTo(1);assertThat(recipient.get(path).statusCode()).isEqualTo(404);
+  sql("UPDATE workspace_member SET active=false WHERE workspace_id='"+w+"' AND role='OWNER'");assertThat(owner.get(path).statusCode()).isEqualTo(404);
+ }
+ @Test void expiredInvitationReplacementIsVersionedScopedAndSingleUse()throws Exception{
+  Browser owner=new Browser(),other=new Browser(),recipient=new Browser();owner.login();other.login();String mobile="+919"+mobiles.incrementAndGet();recipient.login(mobile);String w=workspace(owner);var old=invite(owner,w,mobile);String id=old.get("id").asString(),tag=old.get("etag").asString(),key=UUID.randomUUID().toString(),path="/workspaces/"+w+"/invitations/"+id+"/replace-expired";
+  assertThat(owner.send("POST",path,"{}",key,owner.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(409);
+  sql("UPDATE workspace_invitation SET created_at=CURRENT_TIMESTAMP-interval '2 days',expires_at=CURRENT_TIMESTAMP-interval '1 day' WHERE id='"+id+"'");
+  assertThat(other.send("POST",path,"{}",key,other.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(404);assertThat(recipient.send("POST",path,"{}",key,recipient.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(404);
+  assertThat(owner.send("POST",path,"{}",key,owner.csrf,"http://localhost:3000").statusCode()).isEqualTo(428);assertThat(owner.send("POST",path,"{}",key,owner.csrf,"http://localhost:3000","\"stale\"").statusCode()).isEqualTo(412);
+  try(var pool=Executors.newFixedThreadPool(2)){var a=pool.submit(()->owner.send("POST",path,"{}",key,owner.csrf,"http://localhost:3000",tag));var b=pool.submit(()->owner.send("POST",path,"{}",UUID.randomUUID().toString(),owner.csrf,"http://localhost:3000",tag));assertThat(List.of(a.get().statusCode(),b.get().statusCode())).containsExactlyInAnyOrder(201,409);}
+  assertThat(count("SELECT count(*) FROM workspace_invitation WHERE replaces_invitation_id='"+id+"'")).isEqualTo(1);assertThat(count("SELECT count(*) FROM manager_allocation WHERE workspace_id='"+w+"'")).isZero();
+  JsonNode replacement=null;for(var i:parse(recipient.get("/me/invitations")).get("items"))if(!i.get("replacesInvitationId").isNull())replacement=i;assertThat(replacement).isNotNull();assertThat(replacement.get("maskedDestination")).isEqualTo(old.get("maskedDestination"));assertThat(respond(recipient,replacement,"accept",UUID.randomUUID().toString()).statusCode()).isEqualTo(200);assertThat(respond(recipient,old,"accept",UUID.randomUUID().toString()).statusCode()).isIn(409,412);
+  Browser emailOwner=new Browser();emailOwner.login();String w2=workspace(emailOwner);var emailOld=emailInvite(emailOwner,w2,"replacement@example.test",UUID.randomUUID().toString());String emailId=emailOld.get("id").asString(),emailTag=emailOld.get("etag").asString(),emailPath="/workspaces/"+w2+"/invitations/"+emailId+"/replace-expired",emailKey=UUID.randomUUID().toString();sql("UPDATE workspace_invitation SET created_at=CURRENT_TIMESTAMP-interval '2 days',expires_at=CURRENT_TIMESTAMP-interval '1 day' WHERE id='"+emailId+"'");
+  var first=emailOwner.send("POST",emailPath,"{}",emailKey,emailOwner.csrf,"http://localhost:3000",emailTag);assertThat(first.statusCode()).isEqualTo(201);assertThat(parse(emailOwner.send("POST",emailPath,"{}",emailKey,emailOwner.csrf,"http://localhost:3000",emailTag))).isEqualTo(parse(first));assertThat(emailOwner.send("POST",emailPath,"{}",emailKey,emailOwner.csrf,"http://localhost:3000","\"changed\"").statusCode()).isEqualTo(409);assertThat(count("SELECT count(*) FROM workspace_invitation WHERE replaces_invitation_id='"+emailId+"' AND email='replacement@example.test'")).isEqualTo(1);
+ }
+ @Test void durableInvitationExpiryIsAtomicConcurrentAndRecipientSafe()throws Exception{
+  Browser owner=new Browser(),recipient=new Browser();owner.login();String mobile="+919"+mobiles.incrementAndGet();recipient.login(mobile);String w=workspace(owner),ownerId=parse(owner.get("/auth/session")).get("account").get("id").asString();var invitation=invite(owner,w,mobile);String id=invitation.get("id").asString();
+  sql("UPDATE workspace_invitation SET created_at=CURRENT_TIMESTAMP-interval '2 days',expires_at=CURRENT_TIMESTAMP-interval '1 day' WHERE id='"+id+"'");
+  assertThat(parse(recipient.get("/me/invitations")).get("items").get(0).get("status").asString()).isEqualTo("expired");
+  sql("CREATE FUNCTION reject_expiry_notice() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.message LIKE '%"+id+"%' THEN RAISE EXCEPTION 'expiry test failure'; END IF; RETURN NEW; END; $$");sql("CREATE TRIGGER reject_expiry_notice BEFORE INSERT ON account_notification FOR EACH ROW EXECUTE FUNCTION reject_expiry_notice()");
+  try{assertThatThrownBy(()->expiry.expireDue()).isInstanceOf(RuntimeException.class);}finally{sql("DROP TRIGGER reject_expiry_notice ON account_notification");sql("DROP FUNCTION reject_expiry_notice()");}
+  assertThat(count("SELECT count(*) FROM workspace_invitation WHERE id='"+id+"' AND status='pending' AND version=1")).isEqualTo(1);assertThat(count("SELECT count(*) FROM domain_audit WHERE resource_id='"+id+"' AND action='workspace.invitation_expired'")).isZero();
+  try(var pool=Executors.newFixedThreadPool(3)){var a=pool.submit(()->expiry.expireDue());var b=pool.submit(()->expiry.expireDue());var c=pool.submit(()->respond(recipient,invitation,"accept",UUID.randomUUID().toString()));a.get();b.get();assertThat(c.get().statusCode()).isIn(409,412);}
+  expiry.expireDue();assertThat(count("SELECT count(*) FROM workspace_invitation WHERE id='"+id+"' AND status='expired' AND version=2")).isEqualTo(1);assertThat(count("SELECT count(*) FROM domain_audit WHERE resource_id='"+id+"' AND action='workspace.invitation_expired'")).isEqualTo(1);
+  assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+ownerId+"' AND message LIKE '%"+id+"%'")).isEqualTo(1);assertThat(recipient.get("/me/notifications").body()).doesNotContain("expired without acceptance");assertThat(count("SELECT count(*) FROM manager_allocation WHERE workspace_id='"+w+"'")).isZero();
+  var replacement=invite(owner,w,mobile);assertThat(respond(recipient,replacement,"accept",UUID.randomUUID().toString()).statusCode()).isEqualTo(200);expiry.expireDue();assertThat(recipient.get("/workspaces/"+w+"/membership").statusCode()).isEqualTo(200);
+  String w2=workspace(owner);var revoked=invite(owner,w2,mobile);String revokedId=revoked.get("id").asString();sql("UPDATE workspace_invitation SET created_at=CURRENT_TIMESTAMP-interval '2 days',expires_at=CURRENT_TIMESTAMP-interval '1 day' WHERE id='"+revokedId+"'");sql("UPDATE workspace_member SET active=false WHERE workspace_id='"+w2+"' AND role='OWNER'");expiry.expireDue();
+  assertThat(count("SELECT count(*) FROM workspace_invitation WHERE id='"+revokedId+"' AND status='expired'")).isEqualTo(1);assertThat(count("SELECT count(*) FROM domain_audit WHERE resource_id='"+revokedId+"' AND action='notification.invitation_expiry_suppressed'")).isEqualTo(1);assertThat(owner.get("/me/notifications").body()).doesNotContain(revokedId);
+ }
+ @Test void invitationOutcomesNotifyOnlyCurrentInviterAndRollbackWithResponse()throws Exception{
+  Browser owner=new Browser(),recipient=new Browser(),other=new Browser();owner.login();other.login();String mobile="+919"+mobiles.incrementAndGet();recipient.login(mobile);String w=workspace(owner);
+  String ownerId=parse(owner.get("/auth/session")).get("account").get("id").asString(),recipientId=parse(recipient.get("/auth/session")).get("account").get("id").asString();
+  JsonNode decline=invite(owner,w,mobile);String declineKey=UUID.randomUUID().toString();assertThat(respond(other,decline,"decline",UUID.randomUUID().toString()).statusCode()).isEqualTo(404);assertThat(respond(recipient,decline,"decline",declineKey).statusCode()).isEqualTo(200);assertThat(respond(recipient,decline,"decline",declineKey).statusCode()).isEqualTo(200);
+  assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+ownerId+"' AND category='workspace_invitation'")).isEqualTo(1);assertThat(owner.get("/me/notifications").body()).contains("was declined").doesNotContain(mobile);
+  assertThat(recipient.get("/me/notifications").body()).doesNotContain("was declined");assertThat(other.get("/me/notifications").body()).doesNotContain("was declined");
+  JsonNode accepted=invite(owner,w,mobile);String key=UUID.randomUUID().toString();
+  sql("CREATE FUNCTION reject_invitation_notice() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.category='workspace_invitation' THEN RAISE EXCEPTION 'test notification failure'; END IF; RETURN NEW; END; $$");sql("CREATE TRIGGER reject_invitation_notice BEFORE INSERT ON account_notification FOR EACH ROW EXECUTE FUNCTION reject_invitation_notice()");
+  try{assertThat(respond(recipient,accepted,"accept",key).statusCode()).isEqualTo(503);}finally{sql("DROP TRIGGER reject_invitation_notice ON account_notification");sql("DROP FUNCTION reject_invitation_notice()");}
+  assertThat(recipient.get("/workspaces/"+w+"/membership").statusCode()).isEqualTo(404);assertThat(count("SELECT count(*) FROM manager_allocation WHERE workspace_id='"+w+"' AND status='committed'")).isZero();assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+recipientId+"' AND category='workspace_access'")).isZero();
+  assertThat(respond(recipient,accepted,"accept",key).statusCode()).isEqualTo(200);assertThat(respond(recipient,accepted,"accept",key).statusCode()).isEqualTo(200);assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+ownerId+"' AND category='workspace_invitation'")).isEqualTo(2);
+  String w2=workspace(owner);JsonNode revoked=invite(owner,w2,mobile);String revokedKey=UUID.randomUUID().toString();sql("UPDATE workspace_member SET active=false WHERE workspace_id='"+w2+"' AND role='OWNER'");assertThat(respond(recipient,revoked,"decline",revokedKey).statusCode()).isEqualTo(200);
+  assertThat(count("SELECT count(*) FROM domain_audit WHERE scope_id='"+w2+"' AND action='notification.invitation_outcome_suppressed'")).isEqualTo(1);assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+ownerId+"' AND category='workspace_invitation'")).isEqualTo(2);
+  sql("UPDATE workspace_member SET active=true WHERE workspace_id='"+w2+"' AND role='OWNER'");assertThat(respond(recipient,revoked,"decline",revokedKey).statusCode()).isEqualTo(200);assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+ownerId+"' AND category='workspace_invitation'")).isEqualTo(2);
+ }
+ @Test void essentialMembershipNoticesAreAtomicPrivateAndReplaySafe()throws Exception{
+  Browser owner=new Browser(),recipient=new Browser(),other=new Browser();owner.login();other.login();String mobile="+919"+mobiles.incrementAndGet();recipient.login(mobile);String w=workspace(owner);var invitation=invite(owner,w,mobile);
+  String actor=parse(recipient.get("/auth/session")).get("account").get("id").asString();
+  var pref=parse(recipient.get("/me/notification-preferences"));assertThat(recipient.send("PATCH","/me/notification-preferences","{\"workspaceSetupEnabled\":false,\"quietHoursEnabled\":true,\"quietStart\":\"00:00\",\"quietEnd\":\"23:59\"}",UUID.randomUUID().toString(),recipient.csrf,"http://localhost:3000",pref.get("etag").asString()).statusCode()).isEqualTo(200);
+  String acceptKey=UUID.randomUUID().toString();assertThat(respond(recipient,invitation,"accept",acceptKey).statusCode()).isEqualTo(200);assertThat(respond(recipient,invitation,"accept",acceptKey).statusCode()).isEqualTo(200);
+  assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+actor+"' AND category='workspace_access'")).isEqualTo(1);
+  JsonNode member=null;for(var m:parse(owner.get("/workspaces/"+w+"/members")).get("items"))if(m.get("role").asString().equals("MANAGER"))member=m;assertThat(member).isNotNull();
+  String path="/workspaces/"+w+"/members/"+member.get("id").asString()+"/revoke",key=UUID.randomUUID().toString(),tag=member.get("etag").asString();
+  assertThat(other.send("POST",path,"{}",key,other.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(404);
+  sql("CREATE FUNCTION reject_access_notice() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.category='workspace_access' THEN RAISE EXCEPTION 'test notice failure'; END IF; RETURN NEW; END; $$");sql("CREATE TRIGGER reject_access_notice BEFORE INSERT ON account_notification FOR EACH ROW EXECUTE FUNCTION reject_access_notice()");
+  try{assertThat(owner.send("POST",path,"{}",key,owner.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(503);}finally{sql("DROP TRIGGER reject_access_notice ON account_notification");sql("DROP FUNCTION reject_access_notice()");}
+  assertThat(recipient.get("/workspaces/"+w+"/membership").statusCode()).isEqualTo(200);assertThat(count("SELECT count(*) FROM manager_allocation WHERE workspace_id='"+w+"' AND status='committed'")).isEqualTo(1);
+  assertThat(owner.send("POST",path,"{}",key,owner.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(200);assertThat(owner.send("POST",path,"{}",key,owner.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(200);
+  assertThat(recipient.get("/workspaces/"+w+"/membership").statusCode()).isEqualTo(404);assertThat(recipient.get("/me/notifications").body()).contains("was revoked");assertThat(owner.get("/me/notifications").body()).doesNotContain("was revoked");assertThat(other.get("/me/notifications").body()).doesNotContain("was revoked");
+  assertThat(count("SELECT count(*) FROM account_notification WHERE account_id='"+actor+"' AND category='workspace_access'")).isEqualTo(2);assertThat(count("SELECT count(*) FROM domain_audit WHERE scope_id='"+w+"' AND action='notification.workspace_access_revoked'")).isEqualTo(1);
+ }
  @Test void invitationExpiryDeclineCancellationAndOwnerProtection()throws Exception{
   Browser owner=new Browser(),recipient=new Browser();owner.login();String mobile="+919"+mobiles.incrementAndGet();recipient.login(mobile);String w=workspace(owner);
   JsonNode expired=invite(owner,w,mobile);sql("UPDATE workspace_invitation SET created_at=CURRENT_TIMESTAMP-interval '2 days',expires_at=CURRENT_TIMESTAMP-interval '1 day' WHERE id='"+expired.get("id").asString()+"'");
@@ -311,7 +381,7 @@ class FoundationIntegrationTest {
   Browser owner=new Browser(),recipient=new Browser(),other=new Browser();owner.login();other.login();String mobile="+919"+mobiles.incrementAndGet();recipient.login(mobile);String w=workspace(owner);
   var before=owner.get("/workspaces/"+w+"/entitlements");assertThat(before.statusCode()).as(before.body()).isEqualTo(200);
   assertThat(other.get("/workspaces/"+w+"/usage").statusCode()).isEqualTo(404);
-  for(var q:parse(before).get("quotas"))if(q.get("resource").asString().equals("rentable_items")){assertThat(q.get("available").asBoolean()).isFalse();assertThat(q.get("used").isNull()).isTrue();}
+  for(var q:parse(before).get("quotas"))if(q.get("resource").asString().equals("rentable_items")){assertThat(q.get("available").asBoolean()).isTrue();assertThat(q.get("used").asInt()).isZero();assertThat(q.get("reconciled").asBoolean()).isTrue();}
   var invitation=invite(owner,w,mobile);sql("UPDATE workspace SET status='restricted' WHERE id='"+w+"'");
   var blocked=respond(recipient,invitation,"accept",UUID.randomUUID().toString());assertThat(blocked.statusCode()).isEqualTo(409);assertThat(parse(blocked).get("code").asString()).isEqualTo("WORKSPACE_RESTRICTED");
   assertThat(count("SELECT count(*) FROM manager_usage_event WHERE workspace_id='"+w+"'")).isZero();
@@ -624,4 +694,74 @@ class FoundationIntegrationTest {
   assertThatThrownBy(()->sql("UPDATE workspace_invitation SET mobile='+919123456789' WHERE id='"+id+"'")).isInstanceOf(SQLException.class);
  }
 
+
+ HttpResponse<String> unlink(Browser b,String channel,String tag,String key)throws Exception{return b.send("POST","/me/identity-links/unlink",json.writeValueAsString(Map.of("channel",channel)),key,b.csrf,"http://localhost:3000",tag);}
+ @Test void unlinkRequiresRetainedContactProofAndPreservesReplayAudit()throws Exception{
+  Browser a=new Browser();a.login();String actor=parse(a.get("/auth/session")).get("account").get("id").asString();String tag=profileTag(a);
+  assertThat(unlink(a,"mobile",tag,UUID.randomUUID().toString()).statusCode()).isEqualTo(409);
+  String email="Unlink"+UUID.randomUUID()+"@example.test",id=linkChallenge(a,email,tag);assertThat(link(a,id,tag,UUID.randomUUID().toString(),otp(id)).statusCode()).isEqualTo(200);tag=profileTag(a);
+  assertThat(unlink(a,"email",tag,UUID.randomUUID().toString()).statusCode()).isEqualTo(403);
+  String wrong=reauthentication(a,"email",tag);assertThat(reverify(a,wrong,otp(wrong),tag).statusCode()).isEqualTo(200);a.token();
+  assertThat(unlink(a,"email",tag,UUID.randomUUID().toString()).statusCode()).isEqualTo(403);
+  String proof=reauthentication(a,"mobile",tag);assertThat(reverify(a,proof,otp(proof),tag).statusCode()).isEqualTo(200);a.token();
+  assertThat(unlink(a,"email",null,UUID.randomUUID().toString()).statusCode()).isEqualTo(428);
+  assertThat(unlink(a,"email","\"stale\"",UUID.randomUUID().toString()).statusCode()).isEqualTo(412);
+  String pending=linkChallengeForSignIn(email);String key=UUID.randomUUID().toString();var result=unlink(a,"email",tag,key);assertThat(result.statusCode()).as(result.body()).isEqualTo(200);assertThat(parse(result).get("maskedEmail").isNull()).isTrue();
+  assertThat(unlink(a,"email",tag,key).body()).isEqualTo(result.body());assertThat(unlink(a,"mobile",tag,key).statusCode()).isEqualTo(409);
+  assertThat(count("SELECT count(*) FROM auth_challenge WHERE id='"+pending+"' AND consumed")).isEqualTo(1);
+  assertThat(count("SELECT count(*) FROM domain_audit WHERE actor_id='"+actor+"' AND action='identity.contact_unlinked'")).isEqualTo(1);
+  assertThat(unlink(a,"mobile",profileTag(a),UUID.randomUUID().toString()).statusCode()).isEqualTo(409);
+  Browser other=new Browser();other.login();assertThat(unlink(other,"email",tag,UUID.randomUUID().toString()).statusCode()).isEqualTo(412);
+ }
+ String linkChallengeForSignIn(String email)throws Exception{Browser b=new Browser();b.token();var r=b.post("/auth/challenges",json.writeValueAsString(Map.of("channel","email","destination",email,"purpose","sign_in","displayName","Existing account")),UUID.randomUUID().toString());assertThat(r.statusCode()).isEqualTo(202);return parse(r).get("id").asString();}
+
+ @Test void opposingContactRemovalsHaveOneWinnerAndNeverRemoveLastContact()throws Exception{
+  String mobile="+919"+mobiles.incrementAndGet();Browser a=new Browser(),b=new Browser();a.login(mobile);
+  String tag=profileTag(a),id=linkChallenge(a,"Race"+UUID.randomUUID()+"@example.test",tag);assertThat(link(a,id,tag,UUID.randomUUID().toString(),otp(id)).statusCode()).isEqualTo(200);b.login(mobile);String current=profileTag(a);
+  String pa=reauthentication(a,"mobile",current);assertThat(reverify(a,pa,otp(pa),current).statusCode()).isEqualTo(200);a.token();String pb=reauthentication(b,"email",current);assertThat(reverify(b,pb,otp(pb),current).statusCode()).isEqualTo(200);b.token();
+  String actor=parse(a.get("/auth/session")).get("account").get("id").asString();
+  try(var pool=Executors.newFixedThreadPool(2)){
+   var gate=new CountDownLatch(1);
+   var first=pool.submit(()->{gate.await();return unlink(a,"email",current,UUID.randomUUID().toString()).statusCode();});
+   var second=pool.submit(()->{gate.await();return unlink(b,"mobile",current,UUID.randomUUID().toString()).statusCode();});gate.countDown();
+   var statuses=List.of(first.get(15,TimeUnit.SECONDS),second.get(15,TimeUnit.SECONDS));assertThat(statuses).contains(200);assertThat(statuses.stream().filter(v->v==200).count()).isEqualTo(1);assertThat(statuses).allMatch(v->Set.of(200,401,403,412).contains(v));
+  }
+  assertThat(count("SELECT count(*) FROM user_account WHERE id='"+actor+"' AND ((mobile IS NULL) <> (email IS NULL))")).isEqualTo(1);
+  assertThat(count("SELECT count(*) FROM domain_audit WHERE actor_id='"+actor+"' AND action='identity.contact_unlinked'")).isEqualTo(1);
+ }
+
+ @Test void notificationFiltersAndNewestFirstPaginationAreScopedAndStable()throws Exception{
+  Browser a=new Browser(),b=new Browser();a.login();b.login();String actor=parse(a.get("/auth/session")).get("account").get("id").asString();
+  sql("INSERT INTO account_notification(id,account_id,message,occurred_at) SELECT gen_random_uuid(),'"+actor+"','Older notice '||n,'2020-01-01T00:00:00Z'::timestamptz FROM generate_series(1,30) n");
+  String latest=UUID.randomUUID().toString();sql("INSERT INTO account_notification(id,account_id,message,occurred_at) VALUES('"+latest+"','"+actor+"','Newest notice','2021-01-01T00:00:00Z')");
+  var first=parse(a.get("/me/notifications?status=unread"));assertThat(first.get("items").get(0).get("id").asString()).isEqualTo(latest);assertThat(first.get("totalMatching").asInt()).isEqualTo(31);
+  String cursor=first.get("page").get("nextCursor").asString();
+  assertThat(a.get("/me/notifications?status=read&cursor="+cursor).statusCode()).isEqualTo(422);assertThat(b.get("/me/notifications?status=unread&cursor="+cursor).statusCode()).isEqualTo(422);assertThat(a.get("/me/notifications?status=unknown").statusCode()).isEqualTo(422);
+  assertThat(readNotice(a,latest,first.get("items").get(0).get("etag").asString(),UUID.randomUUID().toString()).statusCode()).isEqualTo(200);
+  var second=parse(a.get("/me/notifications?status=unread&cursor="+cursor));assertThat(second.get("items").size()).isEqualTo(6);assertThat(second.get("totalMatching").asInt()).isEqualTo(30);assertThat(second.get("unreadCount").asInt()).isEqualTo(30);
+  Set<String> ids=new HashSet<>();for(var item:first.get("items"))assertThat(ids.add(item.get("id").asString())).isTrue();for(var item:second.get("items"))assertThat(ids.add(item.get("id").asString())).isTrue();assertThat(ids).hasSize(31);
+  var read=parse(a.get("/me/security-notifications?status=read"));assertThat(read.get("totalMatching").asInt()).isEqualTo(1);assertThat(read.get("unreadCount").asInt()).isEqualTo(30);assertThat(read.get("items").get(0).get("id").asString()).isEqualTo(latest);
+  assertThat(parse(b.get("/me/notifications?status=all")).get("totalMatching").asInt()).isZero();
+ }
+
+ @Test void notificationPreferencesAreVersionedScopedAndIdempotent()throws Exception{
+  Browser a=new Browser(),b=new Browser();assertThat(a.get("/me/notification-preferences").statusCode()).isEqualTo(401);a.login();b.login();
+  String path="/me/notification-preferences",tag=parse(a.get(path)).get("etag").asString(),key=UUID.randomUUID().toString(),body="{\"workspaceSetupEnabled\":true}";
+  assertThat(parse(a.get(path)).get("workspaceSetupEnabled").asBoolean()).isFalse();
+  assertThat(a.send("PATCH",path,body,key,a.csrf,"http://localhost:3000",null).statusCode()).isEqualTo(428);
+  assertThat(b.send("PATCH",path,body,key,b.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(412);
+  var saved=a.send("PATCH",path,body,key,a.csrf,"http://localhost:3000",tag);assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);assertThat(parse(saved).get("workspaceSetupEnabled").asBoolean()).isTrue();
+  assertThat(a.send("PATCH",path,body,key,a.csrf,"http://localhost:3000",tag).body()).isEqualTo(saved.body());
+  assertThat(a.send("PATCH",path,"{\"workspaceSetupEnabled\":false}",key,a.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(409);
+  assertThat(a.send("PATCH",path,body,UUID.randomUUID().toString(),a.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(412);
+  assertThat(parse(b.get(path)).get("workspaceSetupEnabled").asBoolean()).isFalse();assertThat(parse(a.get("/me/notifications")).get("totalMatching").asInt()).isEqualTo(1);
+  assertThat(a.send("PATCH",path,"{}",UUID.randomUUID().toString(),a.csrf,"http://localhost:3000",parse(saved).get("etag").asString()).statusCode()).isEqualTo(422);
+ }
+
+ @Test void quietPreferencesValidateAndLegacyUpdatesPreserveSchedule()throws Exception{
+  Browser b=new Browser();b.login();String path="/me/notification-preferences",tag=parse(b.get(path)).get("etag").asString();
+  for(String body:List.of("{\"workspaceSetupEnabled\":true,\"quietHoursEnabled\":true}","{\"workspaceSetupEnabled\":true,\"quietHoursEnabled\":true,\"quietStart\":\"22:00\",\"quietEnd\":\"22:00\"}","{\"workspaceSetupEnabled\":true,\"quietHoursEnabled\":true,\"quietStart\":\"24:00\",\"quietEnd\":\"07:00\"}"))assertThat(b.send("PATCH",path,body,UUID.randomUUID().toString(),b.csrf,"http://localhost:3000",tag).statusCode()).isEqualTo(422);
+  String body="{\"workspaceSetupEnabled\":true,\"quietHoursEnabled\":true,\"quietStart\":\"23:00\",\"quietEnd\":\"08:00\"}",key=UUID.randomUUID().toString();var saved=b.send("PATCH",path,body,key,b.csrf,"http://localhost:3000",tag);assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);assertThat(b.send("PATCH",path,body,key,b.csrf,"http://localhost:3000",tag).body()).isEqualTo(saved.body());
+  var legacy=b.send("PATCH",path,"{\"workspaceSetupEnabled\":true}",UUID.randomUUID().toString(),b.csrf,"http://localhost:3000",parse(saved).get("etag").asString());assertThat(legacy.statusCode()).isEqualTo(200);assertThat(parse(legacy).get("quietHoursEnabled").asBoolean()).isTrue();assertThat(parse(legacy).get("quietStart").asString()).isEqualTo("23:00");
+ }
 }

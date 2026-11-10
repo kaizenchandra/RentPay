@@ -2,6 +2,8 @@
 
 LMT (Landlord, Manager, Tenant) is being built in the existing **RentPay** repository. The current delivery includes a PostgreSQL-backed catalogue and a **local sandbox identity → session → Free workspace provisioning → persisted setup** journey, plus profile-name editing, active browser-session revocation and sandbox manager invitations. It is not a completed rental SaaS or a live SMS/email integration.
 
+For the full Docker stack, run `./scripts/compose-local.sh up -d --build --wait`, then open http://localhost:3100/login. Email codes arrive in [Mailpit](http://localhost:18025); mobile codes arrive in the [SMS test inbox](http://localhost:8026). These are local test deliveries, with no external email or carrier SMS. See [local inbox setup](infra/compose/LOCAL-INBOXES.md). Native development below retains the private file inbox.
+
 Start at `/login` (or `/register`). Choose Mobile or Email and verify a test contact using the private local inbox, choose/create a Free workspace, and revisit its setup through `/account`. Workspace membership, subscription binding, allowances, audit, retry records and in-app welcome delivery are durable. Context is explicit per tab, and unauthorized workspaces return privacy-safe 404. `/pricing` retains public versioned plan comparison; unknown paid prices remain unknown.
 
 Live SMS/email, rental properties/units, tenancy operations, payments and personal memberships remain unavailable. AUTH-001 and SAAS-REG-001–003 are **Partial**, because their complete source requirements extend beyond this slice.
@@ -248,3 +250,151 @@ Use **Retry same action** after an uncertain creation response. Owners can revok
 ```
 
 Open http://localhost:3100/login. This starts frontend, API, worker, PostgreSQL, one-shot migrations and the same-origin reverse proxy. The existing root Compose database workflow remains unchanged. See [service topology, secrets, verification and recovery](infra/compose/README.md).
+
+### Remove a linked sign-in contact (sandbox)
+
+With both email and mobile linked, open `/account/reauthenticate` and verify the contact you will **keep**. Within five minutes open `/account/identity-links/remove`, review the selected contact/version and confirm. Other browser sessions are revoked; the current account and workspaces remain. Retry the same removal after an uncertain response. Your last contact cannot be removed. `node web/tests/contact-removal.mjs` exercises this journey against the full Compose stack on port 3100.
+
+### Account notification inbox
+
+Open `/account/notifications` (also available under `/tenant/notifications` and `/workspace/notifications`). Filter all/unread/read notices; the URL preserves your selection. Marking read preserves history. Counts distinguish matching notices from account-wide unread notices. This currently contains account-security events, not full tenancy/workspace communications. Run `node web/tests/notification-inbox.mjs` against Compose for desktop/mobile verification.
+
+### Enforced notification preference
+
+At `/account/notification-preferences`, opt into personal in-app workspace setup notices. Create a new workspace after enabling to see the worker-delivered notice in `/account/notifications`. Disabling suppresses subsequent personal copies; shared workspace notices, security notices and prior history remain. This controls only the implemented in-app category. Run `node web/tests/notification-preferences.mjs` against Compose for desktop/mobile verification.
+
+### Optional notification quiet hours
+
+At `/account/notification-preferences`, enable quiet hours and choose distinct start/end times in IST (Asia/Kolkata). Overnight intervals work. Personal workspace setup copies wait; shared setup and security notices stay immediate. `/workspace/operations?workspace=…` explains pending delivery and its next check. Changing quiet hours is observed within 60 seconds. Run `node web/tests/quiet-hours.mjs` for desktop/mobile deferral and worker-restart verification (about two minutes).
+
+## SMS/email sign-in integration
+
+Live sign-in adapters are implemented for **Twilio SMS and Resend email**. The default environment still uses the sandbox inbox until real credentials, approved senders and HTTPS are configured. Follow [live identity setup and verification](infra/compose/LIVE-IDENTITY.md). `python3 scripts/prepare-live-identity.py` prepares private local configuration storage without generating provider credentials or sending messages; `scripts/compose-live.sh` refuses incomplete setup. Provider HTTP fixtures verify integration logic, not real carrier/mailbox delivery.
+
+
+### Pending account notifications
+
+At `/account/notifications`, enabled workspace-setup notices awaiting delivery are shown separately from delivered history. Quiet-hour deferrals link to preferences, and failed deliveries link to authorized workspace recovery. Enable optional setup notices before creating a workspace to exercise the flow. Refresh the list after policy changes or delivery; no code or job state is fabricated. See [ADR 0032](docs/architecture/adrs/0032-personal-pending-notification-deliveries.md).
+
+Manager invitation acceptance and membership revocation now produce essential **Workspace access** notices at `/account/notifications`, even when optional setup notices are off. The recipient can review retained history after revocation, while workspace access remains denied. This flow is in-app only; external invitation/notification delivery remains separately gated.
+
+The original inviting owner also receives an **Invitation outcome** notice when a manager invitation is accepted or declined, provided owner authority is still active. These in-app notices omit invitee contact details and are deduplicated on retry. Check `/account/notifications`; expiry reminders and external invitation delivery remain incomplete.
+
+Manager invitations are marked expired by the worker after their configured deadline. The original owner receives an in-app expiry notice only while still authorized. Screens explain how to request/send a new invitation; expiry does not allocate or release a manager slot. The worker reconciles up to 25 records per pass every 30 seconds after a 60-second startup delay. Inspect worker logs for persistent failures; database recovery/restart resumes due processing.
+
+Owners can select **Review replacement** on an expired invitation, confirm its masked stored contact and issue a new invitation. The original remains expired; lost responses can retry the same confirmation without duplicates. The recipient must explicitly accept the replacement, with capacity checked then.
+
+
+### Inspect invitation expiry progress
+
+As an owner, open Members and invitations → **Invitation expiry processing**. Open, overdue-awaiting and recorded-expired counts cover the entire workspace history, not only the loaded page. Refresh after a worker pass. A backlog already prevents acceptance; it does not mean manager capacity was consumed.
+
+If overdue records persist, the deployment operator can inspect `./scripts/compose-local.sh logs --tail=100 worker` and `./scripts/compose-local.sh ps`. Check database availability and restore the worker with `./scripts/compose-local.sh up -d --wait worker` after resolving the cause, then refresh the owner view. Do not delete invitation/history records or reset databases. Container health alone does not prove job completion, and recorded expiry does not prove notification receipt.
+
+## Property setup (local sandbox)
+
+Start/update the existing stack with `./scripts/compose-local.sh up -d --build --wait`. Sign in at http://localhost:3100/login using a test contact and the existing Mailpit/SMS test inbox. Create/select a Free workspace, then open **Properties**. The register creates real drafts; open a property to edit its address/house rules, add a building/floor/whole unit, review readiness, or archive/restore unused records. Unit headings open canonical unit detail pages. State changes require a reason and reviewed confirmation. Proposed INR amounts are configuration, not rent invoices.
+
+Whole-unit drafts consume one rentable slot; archive releases it and restore consumes again. Buildings/floors do not consume slots. The Usage page reconciles recorded allocations/events to the grant. Shared units/beds are gated on the unresolved counting-policy decision. Property activation, delegated managers/co-owner authority, amenities/assets, private unit media and tenancy/finance-linked availability/closure remain incomplete; see `docs/requirements-matrix.md` and ADR 0038. Do not treat setup-ready as vacant, published or occupied.
+
+Verify with `node web/tests/property-management.mjs` against the running stack and the Java `PropertyIntegrationTest` under the established Testcontainers settings. The browser test creates isolated test data, checks retry/persistence/usage and runs mobile reflow/axe checks. It does not send external carrier SMS or email.
+
+Recovery: after an uncertain network result use **Retry same property action**. For stale versions refresh and review again. For `QUOTA_EXCEEDED`, review/archive an actually unused draft or resolve the subscribed allowance through the existing commercial workflow. For `CAPACITY_RECONCILIATION_REQUIRED`, stop capacity-changing actions and inspect the workspace's `rentable_allocation`, `rentable_usage_event`, `workspace_grant` and audit evidence with authorized operator tooling. No automated property counter repair is implemented; never delete history or reset counters to hide a mismatch. Keep backups and use reviewed forward migrations; V41 must not be rewritten after application.
+
+## Workspace subscription dashboard
+
+After `./scripts/compose-local.sh up -d --build --wait`, sign in at http://localhost:3100/login, select an owner workspace and choose **Subscription dashboard**. The canonical route is `/workspace/billing/subscription?workspace={id}`. It reads the persisted Free contract, current entitlement decisions and measured capacity. Billing periods, paid renewals and next invoices are not applicable to Free; unimplemented add-on/payment/messaging sections explicitly say unavailable. Catalogue alternatives are comparison baselines, with no checkout or external charge.
+
+Run `node web/tests/subscription-dashboard.mjs` against the local stack for the real login/dashboard/privacy/recovery/accessibility journey. `SubscriptionIntegrationTest` runs with the established PostgreSQL/Testcontainers settings. On network failure use **Refresh subscription**; stale details are cleared. A denied workspace requires current billing authority, not a different plan. See release status and ADR 0039 for the remaining paid-lifecycle dependencies.
+
+## Local subscription upgrade verification
+
+The upgrade flow is a **payment simulation**, not live checkout. Start/update the local stack with `./scripts/compose-local.sh up -d --build --wait`. Configure an explicit sandbox offer (the following values are test arithmetic only, not commercial prices or tax advice):
+
+```sh
+python3 scripts/configure-sandbox-upgrade.py --source FREE --target SILVER --amount 100.00 --tax-rate 18 --months 1 --proration none_free_only
+```
+
+As an owner of a workspace subscribed to that source plan version, open **Subscription dashboard → Review subscription upgrade**. Generate/review the quote, confirm the request, then review a clearly labeled simulated success/unknown/failure. Nothing is collected. Only simulated success applies the target and capacity; unknown keeps the old plan and can be reconciled on the same request. For a second test upgrade from Silver to Gold configure the corresponding explicit price and `--proration unused_time_credit`. Only implemented source capabilities are copied; this does not enable unbuilt paid features.
+
+Use `node web/tests/subscription-upgrade.mjs` for automated verification. It creates a labeled test offer and isolated workspace using real UI/API operations. Quoted money and targets come from Java, not browser arithmetic.
+
+Recovery: after a lost response retry the retained exact command. For a stale/expired quote, refresh/review new terms; if an existing sandbox request expired, record a failed outcome before creating another. For payment_unknown, reconcile the same request rather than starting another payment. An audit failure returns retryable 503 and leaves plan/capacity/payment evidence unchanged. Never manually set subscription paid status or edit quotes/payment history. To withdraw an unused offer, an authorized local operator may insert its UUID and reason into `subscription_upgrade_offer_withdrawal`; this prevents new quotes/settlements, so resolve any awaiting sandbox request as failed. Applied history is retained.
+
+Live purchases remain disabled pending provider integration and approved merchant/pricing/tax/credit policies. See ADR 0040 and release status. Existing older source-version workspaces need an explicitly reviewed offer for their contracted version; this helper selects current published source/target versions and does not migrate old contracts.
+
+
+## Local subscription downgrade verification and recovery
+
+After the local sandbox upgrade journey above, open **Subscription dashboard → Review subscription downgrade**. Review Free's feature/capacity changes and excess usage, then confirm the stored billing-period boundary. Scheduling preserves the current plan until the worker applies the change. Refresh status to see the committed outcome; all retained units/members remain visible and excess blocks further capacity consumption. Paid-to-paid targets explain their pending renewal dependency. No real payment or refund occurs.
+
+Run `node web/tests/subscription-downgrade.mjs` against the healthy local Compose stack for the accelerated isolated test. It creates test records, stops/restarts the worker and shortens only its own workspace billing period; do not run it concurrently with other worker-dependent browser tests. Normal application use does not alter the billing clock.
+
+Recovery: keep the worker running; default scheduling is every 30 seconds after a 60-second startup delay (`lmt.subscription.downgrade-delay-ms` / `lmt.subscription.downgrade-initial-delay-ms`). Claims expire after 60 seconds; transient errors retry with bounded backoff up to five attempts per retry cycle. Exhaustion or changed authority/terms appears as **review_required**. Use the screen's reviewed retry for restored transient failures. If original requester authority, subscription or policy changed, cancel and create a fresh authorized review. Cancellation before application fences claimed work. Never force applied status, delete excess records or reset usage counters to fit the target. Valid retained source evidence can be reconciled above a reduced allowance through existing reviewed repair. Private account notices and domain audit record outcomes; external SMS/email is not promised. See ADR 0041 and release status for scope and test evidence.
+
+
+## Local paid subscription cancellation
+
+From a locally upgraded workspace, open **Subscription dashboard → Review subscription cancellation**. Review the billing boundary, access/retention consequences and refund/credit applicability, then confirm. The worker ends paid access at that boundary and keeps the workspace on Free; records remain, and excess usage blocks new capacity. **Review withdrawal** stops a pending cancellation; it does not reverse an applied transition. The history distinguishes withdrawn from applied requests.
+
+Run `node web/tests/subscription-cancellation.mjs` against the healthy local Compose stack. Like the downgrade test, it creates isolated test records, shortens only its own workspace billing period and stops/restarts the worker; run it sequentially with worker-dependent tests. Refund and credit amounts are not applicable because local upgrade payments are simulated. Live cancellation and Free workspace closure are not enabled.
+
+Recovery uses the existing boundary worker described above: refresh persisted status, retry only after resolving transient failure, or withdraw and review fresh terms when authority/policy changed. Do not delete records, force request state or fabricate a refund. Original reviews/audit remain immutable. See ADR 0042 and release status for policy gaps and verified behavior.
+
+
+## Local failed subscription payment recovery
+
+In the local upgrade flow, record a clearly labeled **failed outcome**, then open **Review failed payment recovery** (also **Payment failure and recovery** from the subscription dashboard). The existing plan remains active. Review the failure, grace explanation, retry limit and earliest retry time. After the actual 30-second cooldown, refresh and confirm **Review payment retry**. The same request becomes awaiting payment; only a separately verified simulated successful outcome activates it. Unknown outcomes must reconcile on the same attempt, not start a new collection.
+
+The initial versioned local policy allows three total attempts per confirmed request. Expired/changed quotes, exhausted attempts and legacy requests without known retry policy need fresh reviewed upgrade terms. Repeating a failed outcome cannot restart the clock. Network uncertainty uses **Retry same recovery action** with the existing key. No automatic retry, real charge or renewal grace countdown is configured. Separate permission/security restrictions still apply.
+
+Run `node web/tests/subscription-payment-recovery.mjs` against the healthy Compose stack. It uses real login and persistence, waits the actual local cooldown and verifies lost-response replay, unknown reconciliation and one activation. V45 is additive; old payment history is preserved with unknown historical attempt counts. Policies are immutable versioned commercial configuration; do not alter applied migrations, overwrite quotes or force attempts/status to bypass limits. See ADR 0043 and release status for remaining live/renewal work.
+
+
+## Local receipt and activation recovery
+
+From a pending local upgrade, open **Payment failure and recovery**. **Record pending callback** leaves payment unknown. **Record received payment for background activation** commits an explicitly simulated receipt; the Java worker then activates independently of the browser. Refresh to see queued/applied/review-required status. Do not pay again when a receipt exists. Legacy immediate simulated-success controls remain test-only and do not model a provider-received payment surviving activation failure.
+
+Run `node web/tests/subscription-settlement-recovery.mjs` sequentially against the healthy local Compose stack. It stops/restarts the worker, delivers a simulated paid callback while the page is closed, repeats the same event and verifies independent activation, reopened status and reversal review. Always let its cleanup restart the worker.
+
+V46 is additive and must precede the coordinated API/worker rollout. The worker runs every five seconds after a ten-second initial delay, leases for 60 seconds and bounds retries to five claims per retry cycle. Resolve transient faults, then use **Review activation retry without payment** if shown. Changed terms, conflicting payments and reversals remain operator-review cases; automated compensation/operator resolution is not implemented. **Review simulated payment reversal** fences pending activation or preserves the current plan after activation, retaining records and holding discretionary subscription changes. Never clear the reversal or rewrite payment evidence directly to bypass review.
+
+The callback endpoint requires normal owner session/CSRF and is only a local simulator; it is not a signed provider webhook. Renewal callbacks/mandates, cancellation during renewal, live refund/credit and reversal resolution remain unavailable. See ADR 0044 and release status.
+
+
+## Central feature eligibility and local entitlement inputs
+
+Open **Inspect feature eligibility** from the subscription dashboard (or **Inspect a feature decision** from usage). Enter a configured code such as `PROPERTY_MANAGEMENT`, `PROPERTY_CREATE`, `WORKSPACE_MEMBER_ADD` or `AI_CHATBOT`. The response comes from the same engine used by backend business commands. Active members may read the single-capability decision; resource operations still require their own authority and available quota.
+
+Local operator example (replace the workspace and use a future explicit UTC expiry):
+
+```sh
+python3 scripts/configure-sandbox-entitlement.py --workspace WORKSPACE_UUID --capability PROPERTY_MANAGEMENT --kind commercial_override --effect deny --expires-at FUTURE_ISO_INSTANT --reason 'Local test of property creation restrictions'
+python3 scripts/configure-sandbox-entitlement.py --workspace WORKSPACE_UUID --revoke INPUT_UUID --reason 'Local test complete; restore inherited eligibility'
+```
+
+Kinds are `add_on`, `timed_grant`, `commercial_override`; only overrides may deny. `--starts-at` optionally schedules the input; expiry is required. The utility binds the current plan, rejects live workspaces and records immutable evidence/audit. An `add_on` input is explicitly local configuration, not a paid subscription. Required corrections cannot be commercially denied, and unavailable features remain unavailable even with an allow. Do not edit historical policy/input rows; revoke and create a new reviewed input. Inspect evidence before repeating an uncertain CLI command.
+
+Run `node web/tests/entitlement-evaluation.mjs` against the healthy Compose stack for the real configuration → inspector → domain-denial → revocation → successful-property-creation journey. Live add-on billing/activation and production administrative governance remain unimplemented. V47 changes the effective policy; pending subscription quotes may need fresh review and paid activation conflicts retain receipt evidence. See ADR 0045 and release status.
+
+### Feature locks and effective snapshot
+
+Active workspace members can read `/api/v1/workspaces/{w}/entitlements/snapshot`. The response is private and advisory: effective features, configured local upgrade guidance and aggregate quota counters. Existing commands recheck permissions, eligibility and quotas. Property setup, manager invitations and the entitlement inspector use shared lock notices; input drafts survive refresh. UI reads refresh every 15 seconds, on focus/visibility and after workspace mutations across tabs. Only owners receive upgrade actions; unconfigured or unavailable capabilities do not promise an upgrade. See [ADR 0046](docs/architecture/adrs/0046-feature-lock-snapshots.md) and [release status](docs/release-status.md) for verified scope and outstanding production configuration.
+
+### Unit capacity warnings
+
+Property setup shows current unit usage, reservations and remaining allowance from the private backend snapshot. At 80% usage it warns before capacity; at capacity it blocks counted creation/restoration review while preserving drafts and separate correction actions. The backend independently checks every capacity mutation under a transaction. Inconsistent inventory/counter/evidence returns `CAPACITY_RECONCILIATION_REQUIRED`; no automatic evidence repair is performed. Bulk imports remain unavailable pending the FS-32 resumable-import contract. See [ADR 0047](docs/architecture/adrs/0047-unit-capacity-enforcement.md).
+
+### Shared-bed counting
+
+New sandbox workspaces use counting policy 2: whole units and independently rentable beds count once, shared-unit containers count zero. Properties/buildings/floors and occupant capacity are not quota quantities. Draft, ready and maintenance-blocked inventory counts; archive releases and restore reacquires. Create a shared unit with physical bed capacity, then select **Separately rentable bed** and its parent in property setup. The quota panel shows the bound policy version. Existing workspaces retain policy 1 and do not silently adopt this rule; shared creation remains unavailable there. Live shared inventory and weighted pricing are not enabled. See [ADR 0048](docs/architecture/adrs/0048-workspace-bound-unit-counting.md).
+
+### Communication acceptance metering (local only)
+
+`/workspace/billing/usage?workspace={id}` shows private communication allowances and recent operations. By default every channel is unconfigured. To test email or SMS, use `python3 scripts/configure-sandbox-communication.py --help`, supplying an explicit workspace, `--channel email` or `sms`, `--metric provider_accepted`, allowance, timezone-aware start/end instants and a reason. Periods cannot overlap and contracts are immutable. Log in with the corresponding linked test contact, review the one-message confirmation and submit. Mailpit/SMS-inbox acceptance consumes one unit; it does not prove external delivery or a charge. No money is collected. OTP/sign-in traffic does not consume workspace communication allowance. Unknown outcomes retain reservations and are not resent automatically. WhatsApp, other providers and other contractual metrics are unavailable pending integration. See [ADR 0049](docs/architecture/adrs/0049-communication-acceptance-metering.md).
+
+## Amenity catalog and communication recovery
+
+Start the local stack with `./scripts/compose-local.sh up -d --build --wait`. Sign in and select an owned workspace. Open `/workspace/inventory?workspace={id}` (also linked from properties) to search default definitions or create, review, edit and retire a custom amenity. These definitions do not assert installed inventory.
+
+At `/workspace/billing/usage?workspace={id}`, an unknown local communication outcome offers a reviewed evidence check. The durable check queries Mailpit/SMS acceptance without resending. Missing or expired evidence keeps capacity reserved. Date filters also show overlapping historical communication contracts with whole-period totals. Existing explicit local contract configuration is still required; no production allowance or delivery is implied. Run `node web/tests/communication-recovery.mjs` and `node web/tests/amenity-catalog.mjs` against the local stack. See ADRs 0050–0051 and release status for limitations.

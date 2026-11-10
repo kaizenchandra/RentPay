@@ -1,3 +1,595 @@
+# Catalog and communication recovery — checkpoint 2026-11-10
+
+The request to implement all functional requirements remains **in progress**. This continuation delivers three integrated slices; it does not complete the platform or Phase 2. AMEN-001 and SAAS-QUOTA-003/004/005 remain Partial; all other missing mandatory work remains in the requirement matrix.
+
+- Owner amenity catalog: `/workspace/inventory`, source-defined configurable defaults, normalized aliases, physical/feature/service classification, create/edit/retire, reviewed confirmation and immutable history. Catalog definitions are not installed inventory.
+- Local communication recovery: usage page reviews a version-bound evidence-check request; durable workers query Mailpit/SMS and settle exact acceptance once without resending. Missing/expired/legacy evidence retains the reservation.
+- Communication period history: authorized India-date overlap filters, stable pagination, used/reserved/unknown/failed counts and explicit whole-contract totals. Late receipts remain in their original contract.
+
+Changes: OpenAPI **0.53.0**, regenerated TypeScript, inventory module and `/amenity-types` API, communication reconciliation and period APIs, V51–53, SMS exact-message lookup, UI, browser CI, ADRs 0050–0051. No new dependencies or production allowances.
+
+Verification executed:
+
+- Java 21 `./backend/mvnw -f backend/pom.xml -B -ntp verify`: **139 tests passed**, zero failures/errors/skips. Includes PostgreSQL alias races, scope/revocation, stale versions, idempotent recovery, worker fencing, immutable history and audit rollback.
+- `npm --prefix web run generate` and `npm --prefix web run typecheck`: passed.
+- `./scripts/compose-local.sh up -d --build --wait`: built frontend/backend, applied V51–53 to the actual local stack and reached healthy status.
+- `node web/tests/communication-recovery.mjs`: passed both actual local inboxes after an isolated injected receipt-commit failure; exactly one message and one usage event after recovery.
+- `node web/tests/amenity-catalog.mjs`: passed real create/edit/lost-response replay/retirement/history/alias rejection, keyboard and mobile/desktop axe checks. An initial test selector also matched Next's route announcer; scoping it to main fixed the test.
+
+Run: start Compose, sign in to an owned workspace, then use the inventory link from properties or the billing usage page. Explicit sandbox communication contract configuration remains required. No local acceptance is claimed as live external delivery. Full screen-reader, low-bandwidth and production recovery verification remain unavailable in this checkpoint.
+
+Final regression: `node web/tests/communication-allowances.mjs` and `node web/tests/property-management.mjs` passed on the V53 stack; final frontend typecheck, `python3 scripts/traceability.py` and `git diff --check` passed. All 195 IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates remain preserved.
+
+Remaining: delegated ownership/operating authority, unit assessments/assets/movements/handover, occupancy and the complete Free lifecycle, production communication contracts/providers and the other pending source requirements. The next dependency-ordered work is Phase 2 ownership/delegation and installed inventory assessment. Existing historical checkpoints below describe their state at the time; this checkpoint supersedes their pending local reconciliation/catalog notes.
+
+# Communication allowances — checkpoint 2026-11-10
+
+SAAS-QUOTA-003 / FS-05 / FS-32 now has a working **owner-authorized local email/SMS acceptance-metering journey**. Overall frontend/backend status remains **Partial**: live WhatsApp/other provider operations, production commercial contracts, delivered/attempted/charged metrics, operator reconciliation UI and complete historical reporting remain pending. No unavailable channel is advertised as included, and no local acceptance is described as external delivery or a charge.
+
+Working journey: local operator configures an explicit immutable workspace/plan/channel/period/allowance contract → owner opens `/workspace/billing/usage?workspace={id}` → sees provider-accepted metric, period, used/reserved/remaining and unavailable channels → confirms one local test to the owner's linked contact → durable operation reserves one slot → worker reauthorizes and sends to Mailpit/SMS inbox → acknowledged acceptance consumes one unit and releases its reservation. The page polls actual state. Account/platform sign-in traffic is excluded from workspace usage. Essential tenancy/authentication access is not blocked by these diagnostic allowances.
+
+Integrity: workspace-scoped reservations and receipt completion share one advisory lock; immutable event uniqueness prevents duplicate metering. Actor/workspace idempotency binds contract/contact version and replays the original queue result even after settlement. Request fields cannot establish recipient, money, quantity or paid eligibility. Dispatch intent commits before HTTP; contact/profile version, current subscription, mode, period and authority are rechecked at execution. Provider rejection or revoked work releases capacity. Unknown outcomes/expired leases remain held and are never blindly resent; late acceptance can resolve the hold once. Tests inject receipt outcomes only inside the integration harness, separately from real-container browser evidence.
+
+Changes: V50 communication contracts, operations, unique events, private RLS, scoped claim/completion functions and audit; `CommunicationAllowances`, local worker and controller; `GET /api/v1/workspaces/{w}/usage/communications`, `POST .../communications/tests`; OpenAPI **0.51.0** and generated TypeScript; connected usage component, operator configuration CLI, CI browser test, ADR 0049 and traceability. Existing prices and plan allowances remain unchanged. No new dependency/provider approval or general messaging entitlement is introduced.
+
+Executed verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- Java 21 Maven `-Dtest=CommunicationAllowancesIntegrationTest test`: **3 passed**, covering last allowance race, held unknown outcome, lease expiry, rejection release, late/duplicate acceptance, exact response replay, changed-body conflict, cross-scope/revoked access and contract overlap/immutability. An initial unnecessary row-lock privilege requirement was removed without expanding runtime write permissions. The focused suite passed again after final exact-response replay changes.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **134 passed**, zero failures/errors/skips, before the final replay-only response refinement verified by the focused suite.
+- `./scripts/compose-local.sh up -d --build --wait`: Java/Next build, V49→V50 migration and healthy stack passed.
+- `node web/tests/communication-allowances.mjs`: passed real Mailpit and SMS-inbox acceptance, explicit contract configuration, zero sign-in usage, reviewed confirmation, lost-response replay, exactly one inbox message/one consumed unit, exhausted allowance, reload persistence, unknown-channel display and mobile/axe.
+- `python3 scripts/traceability.py`; `git diff --check`: passed with all 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo: start local Compose; use `python3 scripts/configure-sandbox-communication.py --help` to configure an explicit local email/SMS allowance and period for a sandbox workspace; sign in with that channel's linked test contact; visit the usage route and review the local test. Logs: `/tmp/lmt-communication-full-tests.log`, `/tmp/lmt-communication-final-tests.log`, `/tmp/lmt-communication-browser.log`, `/tmp/lmt-communication-verified-compose.log`.
+
+Recovery boundary: do not clear an unknown reservation or resend merely because a request timed out. Inspect the operation reference and trusted inbox evidence; the internal completion path can record late verified acceptance idempotently. An operator reconciliation interface/adapter is not shipped here, so unresolved unknowns remain a visible held state. Next resumable work is that scoped evidence-reconciliation flow, followed by approved provider-specific contracts/callback evidence for the remaining channels and metrics. Full production readiness and unrelated platform requirements are not claimed.
+
+# Unit counting rules — checkpoint 2026-11-10
+
+SAAS-QUOTA-002 / FS-05 / FS-32: implemented for the existing inventory setup slice, with **Partial** overall frontend/backend status because occupied-tenancy archive protection and resumable imports are not implemented. The chosen new-sandbox definition is one count per independently rentable whole unit or bed, with zero extra count for a shared-unit container. Weighted combinations and live shared commercial policy are not offered.
+
+Working journey: create a **new sandbox workspace** → property setup → shared unit with physical bed capacity → **Separately rentable bed** linked to that unit → usage increases by one → reviewed bed archive releases one → restore reacquires capacity. Properties/buildings/floors count zero; occupant/tenancy/physical capacity does not multiply the quota. Draft, ready and maintenance-blocked items count. Inactive/unavailable inventory is not an automatic capacity release. Occupancy must not discount inventory, but occupancy itself is not implemented by this slice.
+
+V49 binds definitions immutably to workspaces. Existing workspaces retain policy 1 and its shared-unavailable behavior; new sandbox workspaces bind policy 2, while new live workspaces retain shared-unavailable policy 1. New policy publication cannot silently change existing quantities. Bindings/definitions reject update/delete; changing an existing contract requires a reviewed migration. New bindings are audited within provisioning. The actual local upgrade retained 62 policy-1 workspaces; three subsequently created test workspaces bound policy 2.
+
+Changed contracts/modules: OpenAPI **0.50.0** and regenerated TypeScript; commercial workspace-bound policy lookup and shared quantity function; authoritative create/restore/reconciliation use that same function; usage definitions; property hierarchy controls, parent-bed capacity validation and readable counting rules; V49 migration; ADR 0048, decision register, matrix and README. No package/version dependency change. Existing unit/bed classification cannot be changed to evade counts; active children block parent archive, and physical room capacity cannot shrink below active beds.
+
+Executed verification:
+- `npm --prefix web run generate` / `npm --prefix web run typecheck`: passed.
+- Java 21 Maven `-Dtest=PropertyIntegrationTest,EntitlementEvaluationIntegrationTest test`: **11 passed**, including shared zero/bed one, four repeated archive/replay/concurrent-restore cycles, stale-version rejection, maintenance-blocked counting, parent capacity/archive guards, immutable binding, non-adoption of a newer policy and live shared denial.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **131 passed**, zero failures/errors/skips.
+- `./scripts/compose-local.sh up -d --build --wait`: Java/Next builds, V48→V49 migration and healthy startup passed.
+- `node web/tests/property-management.mjs`: real UI shared-container/bed counting and release, quota warnings, concurrency-safe rejection, preserved draft, keyboard/mobile/axe passed. `node web/tests/entitlement-evaluation.mjs` and `node web/tests/subscription-downgrade.mjs` also passed, retaining excess inventory through downgrade.
+- `python3 scripts/traceability.py` / `git diff --check`: passed; 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo: local Compose stack at `http://localhost:3100/login`; provision a new Free workspace and follow the shared-bed journey above. Existing workspaces deliberately do not adopt the new definition. Logs: `/tmp/lmt-counting-tests.log`, `/tmp/lmt-counting-full-tests.log`, `/tmp/lmt-counting-compose.log`.
+
+Remaining dependencies: FS-32 per-source import/reservation/expiry/recovery must use this same bound quantity before enabling imports. Before occupancy is enabled, reviewed archive must enforce allocation/possession/tenancy closure guards; the current unused-inventory archive workflow is not evidence of occupied-tenancy protection. Production shared terms and contract migrations, performance at representative large-portfolio scale and manual screen-reader evaluation remain open. No unrelated platform requirement or phase is marked complete.
+
+# Unit capacity enforcement — checkpoint 2026-11-10
+
+SAAS-QUOTA-001 / FS-05 / FS-32: **working end-to-end for manual unit creation, restoration and archive**, with contextual usage warnings and concurrency/recovery evidence. Overall frontend/backend status remains **Partial**: bulk import and its reservations/expiry/resume contract are not implemented and remain unavailable. Shared counting and live Diamond contracts still require their recorded decisions. No production price or commercial allowance has been invented.
+
+Working journey: local login → workspace → property hierarchy → see **4 of 5 units used**, reservations and remaining capacity → warning at 80% → fifth slot consumed → counted creation/restoration review blocked at capacity → backend independently rejects competing/sixth creation → reviewed archive releases capacity → the retained draft can proceed. Building/floor containers do not consume unit capacity; corrections and existing records are not deleted or globally disabled by quota exhaustion. Counts include drafts under the existing development whole-unit policy and do not reset monthly. Existing versioned defaults remain Free 5, Silver 50, Gold 200, Platinum 1,000 and contract-defined Diamond.
+
+Changed surfaces: `/workspace/properties` and property detail; effective snapshot and owner usage projections; `RentableCapacity` transactional reconciliation; OpenAPI **0.49.0** and generated TypeScript; V48 scoped inventory/allocation/event foreign keys and index; ADR 0047, matrix and setup notes. Snapshot warnings are advisory, while authoritatively locked grant updates enforce capacity. Inventory, allocation mapping, per-allocation/net events and counters must reconcile before capacity changes. Corruption fails closed with `CAPACITY_RECONCILIATION_REQUIRED`; exhaustion returns `QUOTA_EXCEEDED`. No direct public increment/decrement API exists. Existing idempotency, rollback and audit are retained.
+
+Executed verification:
+- `npm --prefix web run generate` and `npm --prefix web run typecheck`: passed.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **130 tests passed**, zero failures/errors/skips. After the final resource-mapping guard, `-Dtest=PropertyIntegrationTest,EntitlementEvaluationIntegrationTest test`: **10 passed**.
+- Tests cover create/create and create/restore last-slot races (exactly one succeeds), exhausted counter rejection, near/full/over-limit projections, archive release after allowance reduction, corrupted counters/mappings, retry after correction, audit-failure rollback, replay, cross-scope and revoked authorization.
+- `./scripts/compose-local.sh up -d --build --wait`: Java/Next builds, additive V47→V48 migration and healthy services passed.
+- `node web/tests/property-management.mjs`: real persisted 4/5 and 5/5 UI, backend sixth-unit denial, draft retention, non-counted container availability, archive recovery, replay and mobile/axe passed. `node web/tests/entitlement-evaluation.mjs` and `node web/tests/subscription-downgrade.mjs` passed, including retained six-unit inventory and blocked expansion after downgrade.
+- `python3 scripts/traceability.py` and `git diff --check`: passed; all 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo: start the local Compose stack, open `http://localhost:3100/login`, provision Free and create a property with four draft whole units. Open the property detail to see the warning, then add the fifth. Review the usage route for evidence. Logs: `/tmp/lmt-unit-quota-full-tests.log`, `/tmp/lmt-unit-quota-final-tests.log`, `/tmp/lmt-unit-quota-compose.log`.
+
+Next concrete dependency: implement FS-32 preview/confirm, per-source idempotent import rows, durable execution/revocation checks, quota reservations, expiry, cancellation and partial recovery before enabling BULK_IMPORT. Shared-bed policy, production operator reconciliation, representative large-portfolio query plans and manual screen-reader verification remain open. This delivery does not mark unrelated tenancy, finance, helpdesk, marketplace, membership, AI or operational gates complete.
+
+# Feature locks and effective snapshots — checkpoint 2026-11-10
+
+SAAS-ENT-002 / SAAS-ENT-003 / FS-05: implemented for existing property setup, manager invitations and entitlement inspection. Overall coverage remains **Partial**: unbuilt essential tenancy workflows, live commercial offers and the full quota catalogue are not represented as complete.
+
+- New active-member `GET /api/v1/workspaces/{w}/entitlements/snapshot` returns frontend-safe effective capabilities, limitation text, qualifying configured plan names, owner-only upgrade actions and aggregate quota counters. No payment history or private grant evidence. OpenAPI 0.48.0 and generated TypeScript. No migration or new dependency.
+- Shared notices explain why an upgrade cannot resolve security/commercial restrictions or unimplemented capabilities. Configured local offers are labeled simulations. The backend remains authoritative for permissions, eligibility and atomic quota consumption.
+- Request-local no-store snapshots refresh every 15 seconds, on focus/visibility and successful workspace mutations across tabs. Subscription changes therefore invalidate UI eligibility without storing workspace state globally or in browser storage. External changes converge through polling; snapshots are never authorization tokens. Logout and context changes abort reads and clear state.
+- Property/invitation draft input survives eligibility refresh. Creation review disables when denied; existing correction/revocation paths retain their separate rules. Actual commands still re-evaluate within their transactions and return stable denial codes.
+
+Verification: generated contracts and TypeScript checks passed; local Compose Java/Next build and healthy startup passed; real-browser entitlement journey passed including mobile/desktop axe, denial/recovery and property draft preservation after a new restriction. Focused PostgreSQL regression run: **8 tests passed**, zero failures/errors/skips (`-Dtest=EntitlementEvaluationIntegrationTest,SubscriptionIntegrationTest,EntitlementOverrideIntegrationTest test`). Tests verify owner/member/foreign/revoked access, no-store, grant changes, configured upgrade guidance and authoritative property mutation denial. Final rebuilt-stack browser regressions also passed: `node web/tests/entitlement-evaluation.mjs`, `node web/tests/property-management.mjs`, and `node web/tests/subscription-upgrade.mjs`. `python3 scripts/traceability.py` and `git diff --check` passed. See ADR 0046. Dedicated cross-tab browser automation, manual screen-reader checks, production and full-lifecycle verification remain outstanding.
+
+Run: `./scripts/compose-local.sh up -d --build --wait`, then visit `/workspace/billing/entitlements?workspace={id}` or `/workspace/properties?workspace={id}` after local login/provisioning. Local grants use the existing `scripts/configure-sandbox-entitlement.py`; no money is collected. Next resumable work: extend the shared notices to each subsequently implemented capability and verify approved live commercial configuration before enabling production upgrade offers.
+
+# Centralized feature evaluation — checkpoint 2026-11-10
+
+SAAS-ENT-001 / FS-05 now has a **working centralized layered evaluator, single-capability API and decision inspector**. Overall frontend/backend status remains **Partial** for full commercial coverage: new add-on/grant inputs are explicitly local configuration, not verified paid purchases. Live add-on activation, complete commercial feature matrix and production grant administration remain pending.
+
+Working journey: **Inspect feature eligibility** from the subscription dashboard (or usage link) → `/workspace/billing/entitlements?workspace={id}` → evaluate a capability → see authoritative eligibility/reason/source, plan/policy versions, operational availability and active supplemental evidence. The same evaluator guards real membership/property commands and subscription previews. Local operator configuration → commercial deny → actual property creation denied → audited revocation → creation allowed is verified against real persistence.
+
+Evaluation combines authoritative active subscription/contracted version and versioned plan entitlements with scoped add-ons, timed grants and commercial overrides. Future, expired, revoked, wrong-plan and wrong-mode inputs do not grant. Deny wins over allow; workspace/security restrictions and operational availability remain hard gates. Protected corrections cannot be commercially denied, including through an older-policy input. PROPERTY_MANAGEMENT gates discretionary property/inventory expansion while corrections/releases retain their own eligibility and permissions. The source example capabilities are represented; unimplemented capabilities fail closed as FEATURE_UNAVAILABLE rather than becoming usable because of a grant. PROPERTY_MANAGEMENT describes the implemented register/inventory subset, not full property-domain completion.
+
+Changes: V47 immutable local entitlement inputs/revocation and audit/RLS, policy 3 with operational/protected-correction metadata and preserved plan bindings; expanded `Entitlements`; `GET /api/v1/workspaces/{w}/entitlements/{capability}` and authenticated route allowlist; active-member read authorization separate from owner business writes; property mutation/configuration lock coordination; OpenAPI **0.47.0**, generated TypeScript, inspector/usage/dashboard integration; `scripts/configure-sandbox-entitlement.py`; ADR 0045, matrix, decisions, architecture, README and sequential Compose CI. No new dependency, price, quota increment, provider call or second business engine.
+
+Integrity evidence: private active-member scope, unknown-code 422, foreign/revoked scope 404, RLS-protected immutable inputs and audited revocation, runtime SELECT-only input access, exact start/expiry and bound-plan filtering, current restriction/availability precedence and server command enforcement. A manager may inspect their workspace's capability but cannot obtain owner property-write authority. Grant changes serialize with existing subscription/membership/property operations. Configuration does not manufacture payment or consume capacity; resource permissions and atomic quotas remain independent. Policy/grant changes can invalidate reviewed subscription terms; paid receipt evidence remains in the existing recovery flow.
+
+Executed verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed with the expanded source/contribution schemas.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **127 tests passed**, zero failures/errors/skips. An earlier run found the missing authenticated endpoint matcher; it was fixed, not bypassed. After the final legacy-policy protected-correction guard and dashboard wording, `-Dtest=EntitlementEvaluationIntegrationTest,SubscriptionIntegrationTest,EntitlementOverrideIntegrationTest test` passed **7 tests**.
+- New tests cover add-on/timed union, commercial deny precedence, future/expired/revoked inputs, unimplemented feature blocking, workspace restrictions/suspension, old-policy correction protection, unknown code, scoped/revoked access, manager read versus denied mutation and actual property creation recovery. Existing upgrade expectations now explicitly distinguish operational from unavailable capabilities instead of asserting every catalogue code is implemented.
+- `./scripts/compose-local.sh up -d --build --wait`: final Java/Next builds, additive V46→V47 migration and healthy stack passed.
+- `node web/tests/entitlement-evaluation.mjs`: passed real operator configuration/revocation, typed inspector, actual property denial/success, add-on unable to enable unavailable AI, linked unknown-field error/recovery, keyboard and mobile/desktop axe. An initial test-only ambiguous selector was corrected to select the actual field-error link.
+- `node web/tests/subscription-upgrade.mjs`; `node web/tests/property-management.mjs`: passed existing upgrade and property browser regression against the expanded engine.
+- `python3 scripts/traceability.py`; `git diff --check`: passed with 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo: see README's central eligibility/local input section. CLI inputs require explicit workspace, capability, kind, effect, expiry and reason; they bind the current plan and cannot target live workspaces. Revoke mistaken inputs and issue new reviewed configuration rather than editing evidence. Expiry is evaluated on reads/commands without a worker. Inspect audit before repeating an uncertain privileged CLI command. Apply V47 before coordinated runtime deployment; old quote fingerprints may need fresh review after policy 3. Next concrete work is verified live add-on activation and governed commercial grant configuration, followed by enabling each product capability only when its actual workflow is available.
+
+Gap review: full owner/manager/tenant lifecycle, active tenancy/inventory/handover, rental finance, helpdesk, reviews/police, signing/exit, marketplaces/tours, personal memberships, remaining SaaS live/renewal/grace/refund, AI and ARCH/INT operational gates remain separately tracked. This does not implement those features or finish Phase 1/7. Full manual screen-reader/low-bandwidth, broad browser regression, performance/load, dependency/secret scans and production restore/provider drills were not rerun. No local input is a live paid entitlement or a production readiness claim.
+
+# Subscription recovery — checkpoint 2026-11-10
+
+SAAS-SUB-006 / FS-04/05 now has **working local durable receipt and activation recovery**. Overall frontend/backend status remains **Partial**. This is an explicitly owner-authenticated sandbox callback adapter, not a live signed provider webhook. Cancellation during renewal, live callback verification/reconciliation and completed reversal compensation/operator resolution remain unimplemented.
+
+Working journey: existing upgrade → payment recovery → pending callback → record a simulated received payment → receipt commits before activation → browser can close → independent Java worker activates → reopen/read durable status. Duplicate callbacks replay without another payment. Activation failure preserves the paid receipt and prior plan; bounded worker retry or reviewed recovery applies without collection. Reversal records an immutable review case, fences pending activation and preserves existing access/records after activation; it does not claim a refund or automatically remove entitlements.
+
+Changes: V46 scoped immutable callback inbox and receipt/job state, bounded fenced claim/failure functions; `SubscriptionSettlements`, controller and worker; existing commercial writer reused for activation without inserting a second paid event; `SettlementView`; callback/retry-activation endpoints and optional typed receipt in existing change/recovery projections; OpenAPI **0.46.0** and generated TypeScript; payment-recovery UI and upgrade link; shared reversal/pending-change guards. No new dependency, price, external payment call or competing backend. ADR 0044, matrix, architecture, decisions, README and sequential Compose CI are aligned. Apply V46 then coordinate API/worker rollout before exposing the callback controls.
+
+| Requested scenario | Delivered / remaining |
+|---|---|
+| Successful payment with browser closed | Tested local paid callback delivered while the page is closed, then worker restart/activation and reopened status. Real provider integration pending. |
+| Repeated callback | Immutable scoped event-key replay, conflicting outcome rejection and concurrent duplicate test; one paid event/activation. |
+| Pending payment | Authoritative payment_unknown without capacity activation; delayed pending cannot undo received/applied evidence. |
+| Payment reversed | Durable reversal_review case, activation fencing, preserved evidence/access and discretionary-change hold. Refund/credit/compensation and operator resolution pending. |
+| Payment succeeded but activation failed | Receipt commits first; injected audit failure rolls back activation only. Bounded retry/review recovery never collects again. |
+| Cancellation during renewal | Pending: renewal collection/mandates and approved race policy do not exist. Competing cancellation during an upgrade settlement is separately tested, not counted as renewal coverage. |
+| Concurrent upgrades | Existing transactional/unique one-open-change protection retained; queued receipt reserves that same slot. |
+
+Integrity evidence: session/CSRF/current owner checks before callback replay, exact change/receipt ETags, immutable evidence and scope foreign keys, membership/subscription/grant locks, worker original-authority recheck and lease fencing. Quote validity uses receipt time for delayed activation while current policy/offer/subscription/entitlements are revalidated. A later paid callback cannot erase a reversal. Existing payment and tenant/rental/personal boundaries remain intact. Domain conflicts stay review work rather than triggering another charge or invented refund.
+
+Executed verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed after fixing an optional callback-label TypeScript narrowing error.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **124 tests passed**, zero failures/errors/skips, including 12 upgrade/recovery tests. New tests cover durable paid evidence across activation rollback, exhausted-retry/manual recovery, duplicate callback concurrency, scoped denial, revoked authority, reversal before/after activation, delayed processing after quote expiry and competing cancellation.
+- `./scripts/compose-local.sh up -d --build --wait`: Java/Next builds, additive V45→V46 migration and final healthy stack passed.
+- `node web/tests/subscription-settlement-recovery.mjs`: passed real local login/persistence, pending callback, paid callback with page closed, duplicate event replay, actual worker restart/activation, one paid event, reopened result, reversal review preserving Silver access, mobile/desktop axe and keyboard. The test uses an authorized local callback driver, not a bank/provider.
+- `node web/tests/subscription-payment-recovery.mjs` and `node web/tests/subscription-upgrade.mjs`: passed existing cooldown/retry/lost-response, unknown reconciliation, priced upgrade and accessibility regression after the shared UI/backend changes.
+- `python3 scripts/traceability.py`; `git diff --check`: passed with all 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo: see README's local receipt/activation recovery section. Stop neither API nor worker during normal use; refresh persisted status rather than paying again. Worker runs every five seconds after ten-second startup delay, with 60-second leases and at most five claims per retry cycle. Resolve transient faults before reviewed activation retry. Reversal or commercial-term conflict remains a visible operator-review case; never force state, clear a hold or rewrite financial evidence. Next concrete work is approved operator reconciliation/compensation and renewal intent/mandate lifecycle with verified provider callbacks and cancellation-race policy.
+
+Gap review: full owner/manager/tenant lifecycle, active tenancy/inventory, rental finance, helpdesk, reviews/police, signing/exit, marketplaces/tours, personal memberships, remaining SaaS renewal/refund/grace, AI and ARCH/INT operational gates remain separately tracked. No complete Phase 7 or production readiness claim. Full manual screen-reader/low-bandwidth, broad browser regression, dependency/secret scanning, load/performance and production provider/backup/restore drills were not rerun. All payment outcomes here remain explicitly simulated.
+
+# Failed subscription payment — checkpoint 2026-11-10
+
+SAAS-SUB-005 / FS-04/05 now has **working local failed-upgrade payment recovery**. Overall frontend/backend status is **Partial**. The repository still lacks renewal collection and an approved renewal grace/restriction policy; those transitions are not implemented. Failed upgrades preserve the existing plan, so their grace status is explicitly **not applicable**, with no fabricated countdown. Payment outcomes remain clearly simulated; no bank/provider is contacted.
+
+Working journey: local upgrade → simulated failure → **Review failed payment recovery** (also linked from the dashboard) at `/workspace/billing/subscription/payment-recovery?workspace={id}` → read persisted failure, current plan/access, retry attempts, cooldown, quote/recipient/expiry, grace explanation and restrictions → wait/refresh → explicitly confirm retry of the same request → reconcile pending/unknown outcome → verified simulated success activates once. Cancelled confirmation creates no attempt; reload and lost-response replay retain durable status. Unknown payment never authorizes another attempt.
+
+Changes: `SubscriptionUpgrades` owns recovery projection and bounded retry; `SubscriptionUpgradeController` adds `GET .../subscription/payment-recovery` and `POST .../changes/{id}/retry-payment`; new route/component and failed-upgrade/dashboard links; OpenAPI **0.45.0** and generated contracts; **V45** immutable effective-dated local retry policy, policy binding/attempt/failure metadata and per-attempt outcome uniqueness. New local policy permits three attempts total per confirmed change, 30-second cooldown and manual confirmation only. Existing historical events are unchanged; legacy attempt history is unknown and failed legacy requests need fresh terms. No new dependency or second payment writer. ADR 0043, architecture, matrix, README, decisions and sequential Compose CI are aligned.
+
+Authorization/financial/recovery evidence: current owner and sandbox checks; strong If-Match and scoped idempotency; existing subscription locks serialize competing retries; quote/subscription/offer/policy/entitlement/pending-change revalidation; audit and attempt increment commit atomically. Duplicate failure does not reset cooldown or add an event. Unknown reconciles on the same attempt; applied cannot be reversed by a later failed signal. One successful simulated settlement per change remains enforced. Retry intent alone creates no payment event or capacity change. Existing subscriptions/records are not restricted or deleted by failed discretionary upgrades; independent security status remains visible. An injected audit failure rolls back retry and the same key safely recovers.
+
+Executed verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **120 tests passed**, zero failures/errors/skips. After final current-policy eligibility/live-mode projection changes, the same invocation with `-Dtest=SubscriptionUpgradeIntegrationTest test` passed **8 tests**. Coverage includes cooldown, replay, missing/stale version, concurrent retry, exhaustion, unknown reconciliation, scoped/revoked authority, legacy history and injected audit rollback.
+- `./scripts/compose-local.sh up -d --build --wait`: final Java/Next builds, additive V44→V45 migration and healthy stack passed.
+- `node web/tests/subscription-payment-recovery.mjs`: passed real local login/persistence, failed-upgrade link, grace/restriction display, unchanged Free access, actual 30-second cooldown, cancelled confirmation, committed-response loss/replay producing exactly one retry, unknown state/reconciliation after reload, one activation and desktop/mobile axe/keyboard checks. No test clock override or real payment.
+- `node web/tests/subscription-upgrade.mjs`: passed existing priced-quote, confirmation, unknown-outcome/reload reconciliation, activation and accessibility regression after the shared backend/UI changes.
+- `python3 scripts/traceability.py`; `git diff --check`: passed; 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo: use the configured local sandbox upgrade in README, simulate failed, open recovery and refresh after the displayed retry time. Exhausted/expired/changed/legacy failures require a new reviewed quote; unknown outcomes require reconciliation. Do not force statuses/counters or rewrite payment events. New versioned policy rows govern future requests; never edit applied migrations or historical policies.
+
+Next concrete step: implement configured renewal invoice/payment intents and reviewed grace, restricted-capability and recovery policy, then verified provider settlement/callback/mandate retry integration. This remains required SAAS-SUB-005/006 work; no completed renewal-grace or Phase 7 claim. Appropriate live reminders and account-wide abuse/rate limits also remain pending.
+
+Gap review: full owner/manager/tenant lifecycle, active tenancy/inventory, rental accounting, helpdesk, signing/exit, reviews/police, marketplaces/tours, memberships, SaaS renewal/refunds, AI and remaining ARCH/INT gates remain separately tracked. No new behavior claims for unimplemented essential tenant journeys. Full manual screen-reader/low-bandwidth, broad browser regression, load/performance, dependency/secret scans and production provider/backup/restore drills were not rerun. Local simulation is not live commerce or production readiness.
+
+# Subscription cancellation — checkpoint 2026-11-10
+
+SAAS-SUB-004 / FS-04/05 now has a **working end-to-end local sandbox paid cancellation**. Overall frontend/backend status remains **Partial**: live cancellation, actual refunds/credits, approved retention/deletion policy and signing-provider continuity are not implemented. The local worker performs real durable transitions; the prior paid upgrade settlement is explicitly simulated.
+
+Working journey: **Subscription dashboard → Review subscription cancellation** at `/workspace/billing/subscription/cancellation?workspace={id}` → review effective billing boundary, access/feature/quota consequences, excess usage, retention requirements and refund/credit applicability → explicit confirmation → persisted schedule → worker reauthorization/application → Free continuation without deleting records. Pending cancellation can be withdrawn or recovered; withdrawal is visibly distinct from paid access ending. Uncertain response retry uses the original key. History survives reload and contains reviewed policy and actual application time.
+
+Changed contracts/modules: canonical `GET/POST .../subscription/cancellation`, `POST .../cancellation/reviews`, `POST .../cancellation/{id}/withdraw` and `/retry`; `SubscriptionCancellationController`; shared commercial boundary engine and private identity notices; OpenAPI **0.44.0** and generated TypeScript; dedicated route/shared accessible review component/dashboard link. Optional immutable cancellation terms extend V44 JSON snapshots; **no new migration, dependency, price or separate subscription writer**. ADR 0042, matrix, decision register, architecture, README and sequential Compose CI are updated. Deploy API/worker together before exposing the new flow.
+
+Integrity evidence: authenticated current-owner scope, strong subscription/request versions, exact cancellation review required, immutable policy/retention snapshot, scoped idempotency replay even after application, one open shared transition, fenced withdrawal and reauthorization after revocation. Plan/allowance changes, request application, cancellation audit and private notice commit atomically. Injected audit failure preserves paid access and retries safely. Existing usage/membership/property records remain; Free expansion is blocked above allowance. Refund/credit statuses are explicitly not_applicable_sandbox with null amounts, never fake processed refunds. No tenant/rental/personal payment data is allocated or changed.
+
+Executed verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **117 tests passed**, zero failures/errors/skips. Initial restricted Docker access prevented container tests; rerun with Docker access passed. After final withdrawal-notice wording, the same command with `-Dtest=SubscriptionDowngradeIntegrationTest test` passed **7 tests**, including all new cancellation cases and existing downgrade recovery.
+- `./scripts/compose-local.sh up -d --build --wait`: final Java/Next container builds and healthy services passed; existing V44 database accepted new immutable cancellation snapshots.
+- `node web/tests/subscription-cancellation.mjs`: passed real local login/upgrade, retained six-unit inventory, cancellation details, excess warnings, confirmation cancellation, actual withdrawal, same-key lost-response replay, durable reload, actual worker application after restart, blocked expansion, Free dashboard, private notice, keyboard/axe/mobile checks. Only its isolated test workspace's clock was shortened; no live money/provider call.
+- `node web/tests/subscription-downgrade.mjs`: passed the existing shared-screen downgrade journey after the cancellation changes, including actual boundary worker processing, retained inventory, lost-response recovery and accessibility checks.
+- `python3 scripts/traceability.py`; `git diff --check`: passed with 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates preserved.
+
+Run/demo: use the local sandbox upgrade instructions in README, then the cancellation link from the dashboard. Normal cancellation waits for the persisted period end. Recovery follows ADR 0041/0042: refresh, resolve transient faults then retry, or withdraw and create a new review when policy/authority changes. Never force applied state, rewrite historical terms or delete excess records. Next concrete step is reviewed live cancellation/refund/credit and retention configuration plus provider settlement/mandate integration before enabling live workspaces.
+
+Gap review: full source Scenario 13 (cancellation during partial agreement signing) cannot be certified until signing/provider workflows exist; no agreement/document mutation is introduced. Full owner/manager/tenant lifecycle, occupancy/inventory handover, rental finance, helpdesk, reviews/police, signing/exit, marketplaces/tours, personal memberships, SaaS renewal/refunds, AI and remaining ARCH/INT gates remain separately tracked. No Phase 7 or production readiness claim. Full manual screen-reader/low-bandwidth, broad browser regression, performance/load, dependency/secret scanning and production restore/provider drills were not rerun.
+
+# Scheduled subscription downgrades — checkpoint 2026-11-10
+
+SAAS-SUB-003 / FS-04/05 now supports an **end-to-end local sandbox paid-to-Free downgrade**. Overall frontend/backend status remains **Partial**: paid-to-paid renewal settlement and approved live policy are not implemented. No real money is collected/refunded; this is not completion of Phase 7.
+
+Working journey: subscription dashboard → `/workspace/billing/subscription/downgrade?workspace={id}` → authoritative quota/feature comparison and excess warnings → expiring version-bound review → confirm persisted schedule → actual worker applies Free at the recorded billing boundary → retained records, zero remaining capacity when over limit, explicit excess and private notice. Cancellation, uncertain-response same-key retry, reload recovery and reviewed worker retry are integrated. Above-limit records are preserved; no automatic deletion operation is introduced.
+
+Changes: commercial `SubscriptionDowngrades`, controller, `DowngradeWorker`, identity `SubscriptionNotices`; V44 immutable reviews/request lifecycle/idempotency/RLS and leased recovery; OpenAPI **0.43.0** and generated TypeScript; five downgrade endpoints; centralized time-aware entitlement review; upgrade conflict guard; usage/dashboard excess display; retained-over-limit capacity repair. ADR 0041, README, architecture, decisions, matrix and sequential Compose CI are updated.
+
+Integrity evidence: owner/cross-scope/revoked-authority checks, strong ETags, scoped idempotency, exact policy/version/usage confirmation, membership/subscription/grant locks, fenced leases and one open request. Applying plan, allowances, audit and private notice is atomic. Existing used/reserved counts and underlying records survive. Atomic capacity predicates still block expansion. An injected audit failure rolls back application; restart/retry applies once. Exhausted crashed leases become review_required instead of remaining stranded.
+
+Actual final verification:
+- `npm --prefix web run generate` and `npm --prefix web run typecheck`: passed.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **114 tests passed**, zero failures/errors/skips. An earlier regression exposed late-boundary policy evaluation; corrected to evaluate at max(boundary, database now), then reran the full suite successfully.
+- `./scripts/compose-local.sh up -d --build --wait`: Java/Next builds, additive V44 migration and healthy stack passed.
+- `node web/tests/subscription-downgrade.mjs`: final rerun passed real local login/API records, six-unit excess, feature/confirmation review, cancellation, committed-response loss/replay, persisted scheduling, actual worker application after restart, six retained units, blocked expansion, Free dashboard excess, private notice, keyboard/axe and mobile reflow. Only this isolated test workspace's billing clock is shortened.
+- `python3 scripts/traceability.py` and `git diff --check`: passed after documentation updates; all 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo and operational recovery: see README's local downgrade section. Normal requests use the actual persisted billing end. Retry exhausted transient failures through the reviewed UI; changed authority/policy requires cancel and fresh review. Never force state or delete excess data. Next concrete step is configured paid-to-paid renewal pricing and verified settlement, including the full-source Gold 120 → Silver scenario, before enabling those targets.
+
+Gap review: no completion claim for owner/manager/tenant lifecycle, occupancy/inventory/handover, rental finance, helpdesk, reviews/police, signing/exit, marketplaces, tours, personal memberships, AI or remaining ARCH/INT gates. Those remain separately tracked; this task adds no deletion of their records but cannot verify unimplemented full journeys. Manual screen-reader/low-bandwidth, complete browser regression, load/performance, dependency/secret scanning, real provider and production backup/restore drills were not rerun. Live pricing/refund/grace and renewal policies require approved configuration and provider evidence.
+
+# Versioned subscription upgrades — checkpoint 2026-11-10
+
+SAAS-SUB-002 / FS-04/05 now has an **end-to-end local sandbox upgrade flow**. Full live-commerce status remains **Partial**. No real money is collected and no live settlement is claimed. The existing subscription dashboard links to `/workspace/billing/subscription/upgrade?workspace={id}`.
+
+Implemented journey: configure explicit test terms → select source/target offer → server-priced ten-minute quote → review current/requested plan, capacity, newly eligible implemented features, interval, recipient, credit/tax/final INR amount and effective-time rule → confirm a persisted awaiting-payment request → simulate failed/unknown/successful payment → reconcile the same unknown request → atomically apply successful simulated settlement, subscribed plan/version/period, capacity and audit. Pending/failed/unknown do not activate. Applied time and updated dashboard/capacity are server-backed. Source contract history and used/reserved counts are retained. No extra paid features are invented merely because the target is Silver/Gold.
+
+Changes: `SubscriptionUpgrades` / `SubscriptionUpgradeController`; canonical `change-quotes`, `changes`, authorized status and explicitly sandbox-only outcome endpoints; OpenAPI **0.42.0** and generated TypeScript; central `Entitlements.preview` and fingerprint checks; subscription dashboard period projection; V42 immutable offers/quotes/payment events, durable requests/idempotency and subscription terms; additive V43 workspace foreign keys/paid-term constraints. The new route handles explicit confirmation/cancel, stale/expired review, pending/unknown outcome, safe same-key retry, reload recovery and private context changes. CLI `scripts/configure-sandbox-upgrade.py` accepts explicit operator test amounts/rates/intervals; it does not alter published prices. README/ADR 0040/architecture/decisions/matrix and sequential Compose CI are aligned.
+
+Integrity evidence: actor/workspace/operation-bound keys; strong subscription/change If-Match; exact quote policy/effective-grant fingerprint; membership/override lock, subscription row lock and ordered grant locks; one open checkout and one successful simulated settlement per change. Expired/changed quotes and oversized configured totals fail closed. Credit uses configured unused paid-base time, two-decimal HALF_UP arithmetic; taxes are test configuration, not legal policy. Purpose-separated immutable payment events never enter rental/personal ledgers. Injected audit failure rolls back payment, plan and quota changes together while preserving the earlier awaiting request. Current authority is checked again at execution/replay; live workspaces reject the simulator. No external effect occurs before durable intent.
+
+Actual verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- Full `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **107 tests passed**, zero failures/errors/skips before the final fingerprint/range guards. Final focused `SubscriptionUpgradeIntegrationTest,SubscriptionIntegrationTest,FoundationIntegrationTest`: **62 passed**, including effective-grant invalidation and V43. Final `-Dtest=SubscriptionUpgradeIntegrationTest test`: **5 passed**, including the configured-total guard. Initial failures identified and fixed PostgreSQL timestamp binding and runtime allowance-update permission; no errors were hidden or assertions weakened.
+- `./scripts/compose-local.sh up -d --build --wait`: actual Java/Next builds, V41→V42→V43 additive upgrade and health passed. Final build rechecked after guards.
+- `node web/tests/subscription-upgrade.mjs`: passed real captured-SMS login, explicit test quote/tax/credit display, cancellation with no request, committed-response loss/replay, persisted unknown outcome after reload, reconciliation, exactly one activation/capacity increase, dashboard integration, keyboard, axe and desktop/mobile reflow. The test creates an explicitly labeled test offer and isolated workspace. No real payment/provider call.
+- `python3 scripts/traceability.py`; `git diff --check`: passed with all 195 IDs, 36 FS, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Run/demo: start the existing local Compose stack, use the explicit sample test configuration command in README, then **Subscription dashboard → Review subscription upgrade**. Existing test offers from the browser verification are visible to matching local Free versions. Quote/confirmation does not collect anything. Use simulated outcomes only on this test environment. Expired pending requests must be resolved as failed before a fresh quote; uncertain network results retry the original key; an applied request cannot be reversed by a later failed outcome. Full setup and operator withdrawal/recovery instructions are in README and ADR 0040.
+
+Remaining/prerequisites: approved live pricing/merchant/tax/proration/credit rules, real provider order creation and authenticated callbacks/API reconciliation with durable external dispatch/recovery, production invoice/receipt/credit accounting, renewal lifecycle, scheduled activation when selected, contract-defined Diamond capacity, billing delegation and operational readiness. The mode question received no answer; implementation proceeded with the explicitly stated local simulation assumption, not inferred live authorization. No production prices, tax obligations, legal approvals, credits or real paid entitlements are invented. Other mandatory product/ARCH/INT gaps remain as tracked. Full browser regression, manual screen-reader/low-bandwidth, load/performance, dependency/secret scanning and production backup/provider drills were not rerun. Next concrete step is the selected live provider and reviewed commercial configuration using the same durable intent/verified-settlement invariants; never enable the sandbox outcome endpoint in production.
+
+# Subscription dashboard — checkpoint 2026-11-10
+
+SAAS-SUB-001 / FS-04/05 now has a working private dashboard for the implemented Free subscription lifecycle. **Full requirement status remains Partial** because paid billing/add-ons/channel metering/payment history are not implemented. Every requested section is present with authoritative data or an explicit unavailable/not-applicable explanation; missing data is never presented as zero, an empty paid ledger or verified payment success.
+
+Working journey: existing real sign-in → owner workspace → **Subscription dashboard** at `/workspace/billing/subscription?workspace={id}`. The page shows contracted plan/version, subscription/workspace status, persisted start, Free billing/renewal/invoice applicability, add-on coverage, reconciled unit/manager capacity, email/WhatsApp coverage, published comparison baselines, payment-history coverage and calculated effective entitlements. Safe refresh clears stale details, supports retry and ignores obsolete requests. The contract remains the originally subscribed version after public catalogue changes.
+
+Backend/API: owner-authorized `GET /api/v1/workspaces/{w}/subscription`, read-only repeatable-read `SubscriptionDashboard`, OpenAPI **0.41.0** and regenerated TypeScript. Reuses commercial usage/entitlements and the public catalogue interface; no duplicate billing tables, migration, new dependency, mutation or provider call. Current owner membership is the implemented billing authority. Managers/outsiders/revoked owners get privacy-safe 404; anonymous users get 401. No-store API/private noindex route; anonymous HTML contains no private snapshot. Rental and personal payments are excluded. Existing provisioning/usage audit and transaction recovery remain unchanged; reading creates no payment, quota change or financial audit event.
+
+Verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- Targeted `-Dtest=SubscriptionIntegrationTest test`: 2 passed initially. Full verification exposed a timing-sensitive test fixture (its supposed newer plan could predate the migration seed); corrected fixture timestamp. Final `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **104 tests passed**, zero failures/errors/skips.
+- `./scripts/compose-local.sh up -d --build --wait`: passed actual Java/Next builds and health checks; no migration needed.
+- `node web/tests/subscription-dashboard.mjs`: passed real captured-SMS login/provisioning/navigation, required sections, null/unavailable semantics, private API/HTML, cross-workspace denial, failure/refresh recovery, keyboard refresh, desktop/mobile axe and reflow. Added to the existing sequential Compose CI job.
+- `python3 scripts/traceability.py`; `git diff --check`: passed, retaining 195 IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates.
+
+Remaining: real paid billing period/renewal and calculable invoice estimates; active add-on subscriptions; payer-owned email/WhatsApp usage/allowances; priced eligible upgrades; durable SaaS payment history/pagination. These require their owning commercial/communications workflows, not dashboard fixtures. Source comparison plans are unavailable for purchase; no plan activation or payment collection is added. No separate billing delegation is implemented. Broader FS-04 change/cancel/refund/provider recovery and FS-05 metering gates remain incomplete. No full SAAS-SUB-001/Phase 7/production-readiness claim.
+
+Run/demo: start the existing local stack, sign in at http://localhost:3100/login and select **Subscription dashboard** in an owner workspace. Use **Refresh subscription** after a transient error. Next resumable work is the authoritative SaaS billing/add-on and channel-usage data workflows, then extending this read model to recorded periods/estimates/payment pages. See ADR 0039 and the requirement matrix. Full browser regression, manual screen-reader/low-bandwidth, performance/load, provider sandboxes, dependency/secret scanning and production backup/recovery were not rerun for this bounded dashboard change.
+
+# Property register, hierarchy and rentable capacity — checkpoint 2026-11-10
+
+**The requested complete property-management scope is not finished.** This checkpoint delivers a working owner-only property setup slice for PROP-001 / OWN-WF-001 / MARKET-002, FS-07 with FS-05 capacity integration. Frontend/backend statuses remain **Partial**. The property scope checkpoint in the requirements matrix explicitly lists the remaining FS-08/09 and cross-phase work; none is silently downgraded to optional.
+
+Working journey: existing real email/mobile sign-in → Free workspace → Properties → create/edit address, coordinates and house rules → add/edit building/floor/whole-unit hierarchy → review configuration readiness → archive/restore unused spaces → inspect commercial usage and retained history. Unit links open `/workspace/units/{id}`. Proposed rent/deposit/maintenance remain decimal-string configuration; no recurring rent, tenancy, occupancy, listing or verification is fabricated. Property activation is blocked by missing authoritative prerequisites.
+
+Changes:
+- Canonical routes `/workspace/properties`, `/workspace/properties/{id}`, `/workspace/units/{id}`, owner navigation and measured rentable usage. RHF forms, field-error links, explicit confirmation, URL filter, bounded pagination, safe retained input, unknown-outcome replay and mobile layouts.
+- OpenAPI **0.40.0**, generated TypeScript models, `PropertyController` / `Properties`, private property/space reads and create/edit/review/archive/restore commands. Existing errors now include the property module so domain conflicts do not fall through to a misleading security response.
+- Additive **V41**, property/space/composite parent constraints, command deduplication, immutable history, owner RLS, commercial-owned rentable allocations/events/counting policy and commercial policy version 2. `RentableCapacity` updates grant usage atomically; existing policy versions and historical records are retained.
+- ADR 0038, architecture, decisions, README, matrix and sequential Compose browser CI updated. Existing unrelated changes preserved; no dependencies or providers added.
+
+Actual verification:
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify`: **102 tests passed**, zero failures/errors/skips. The initial run exposed an outdated two-capability assertion; the final test compares complete inherited sets and passed. Property tests exercise migration, private owner scope, cross-property parent denial, duplicate/replayed commands, missing/stale If-Match, shared-policy gate, decimal persistence, last-slot race, release/restore reconciliation and injected audit failure with full rollback/recovery.
+- `./scripts/compose-local.sh up -d --build --wait`: passed actual Java/Next image builds, V40→V41 upgrade and service health. Rebuilt/rechecked after final route/error changes.
+- `node web/tests/property-management.mjs`: passed real captured-SMS login, UI property/unit creation/editing/detail navigation, persistence after reload, configuration readiness, committed-response loss and same-key recovery, archive/restore usage, network failure/refresh, keyboard confirmation, axe WCAG tags and 390px reflow. Added to sequential Compose CI; hosted CI has not run here.
+- `python3 scripts/traceability.py`; `git diff --check`: passed; **195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates** retained.
+
+Permission/concurrency/recovery: current workspace owner scope is required, including before replay. Workspace/property IDs select records but do not grant access; RLS and composite foreign keys enforce isolation. Manager membership alone cannot access property data. No verified legal ownership/signing/payout authority is implied. Quota allocation/release, property state, usage events, history, audit and deduplication result commit in the same transaction. Existing-resource confirmations bind to the current version. Audit failure rolls back capacity and inventory; retry with the same key recovers. Readiness and physical capacity are separate from allocation/possession/financial closure.
+
+Remaining mandatory property work: co-owner evidence/authority, accepted property delegation, effective-dated operating/signing/payee policies and approval/task workflows; amenity catalogue, explicit item assessments, serialized/quantity assets and movements, matrix/filter/export, immutable handover/disputes; private unit galleries, meters/charge references, authoritative allocation and occupancy/history, tenancy/financial archive blockers, activation, notifications and property dashboards. Existing hierarchy archive checks are not occupied-property closure checks. Shared-bed counting is **Blocked** on the unanswered business-policy choice; other listed work remains **Pending**, not blocked by that choice. No live property integration or simulated successful verification is claimed.
+
+Run/demo: use the existing local stack at http://localhost:3100/login, create/select a Free workspace and choose **Properties**. README has exact recovery steps. Next concrete implementation is FS-08 property authority/delegation and FS-09 catalogue/assessment/stock-movement vertical slices, followed by readiness prerequisites; retain activation blockers until these and the allocation/finance interfaces exist.
+
+Full-source gap review: broader owner/manager/tenant operations, active tenancy, inventory/handover, dashboards, finance, complete helpdesk, residence reviews, police, signing/exit, marketplace aliases, tours/appointments, independent memberships, paid SaaS, AI and remaining ARCH/INT gates are still incomplete. No phase or production-readiness claim. Full browser regression, manual screen-reader/low-bandwidth verification, representative performance/query plans, dependency/secret scanning and backup/restore/production drills were not rerun for this checkpoint.
+
+# Owner invitation expiry diagnostics — checkpoint 2026-11-10
+
+Implemented owner-facing expiry processing transparency for AUTH-001 / NOTIFY-001, FS-01/02/22; broader requirements remain **Partial**. Members and invitations now displays a real persisted-state snapshot: total invitations, open deadlines, overdue pending records awaiting expiry, recorded expiry, and oldest-overdue deadline/age. Definitions and snapshot time distinguish these metrics from worker health or message receipt.
+
+Added owner-authorized read-only `GET /api/v1/workspaces/{w}/invitation-expiry`, OpenAPI **0.39.0** and generated frontend types. The query uses current owner/RLS scope, one database time and repeatable-read state. No migration, quota effect, job mutation, external service or new plan gate. The UI handles loading, zero backlog, network error, refresh and obsolete-request cancellation. Failures never become zero counts. Existing expiry worker/audit and reviewed replacement remain authoritative.
+
+Actual verification:
+- Maven `-Dtest=FoundationIntegrationTest test` with documented PostgreSQL/Testcontainers settings: **56 passed**, zero failures/errors/skips. New tests cover empty/open/due/recorded reconciliation, age/null reset, accepted-state denominator, private cache, anonymous/recipient/manager/cross-workspace/revoked-owner denial.
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- `./scripts/compose-local.sh up -d --build --wait`: passed actual Java/Next builds and runtime health; no new migration required.
+- `node web/tests/invitation-expiry.mjs`: passed visible backlog with the actual worker stopped, API network failure without a false zero, refresh recovery, worker restart/completion, private expiry notice, replacement confirmation/retry/acceptance, keyboard/axe/reflow. This expanded test runs in the existing sequential Compose CI job.
+- `python3 scripts/traceability.py`; `git diff --check`: passed with 195 IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Demo: open Members and invitations as a workspace owner at http://localhost:3100/login and inspect Invitation expiry processing. Refresh after the worker pass. If overdue work persists, follow the README operator steps to inspect worker/database state and restore service; never delete history to clear the count. See [ADR 0037](architecture/adrs/0037-owner-invitation-expiry-diagnostics.md).
+
+Remaining/next: durable per-record failure/retry-exhaustion recovery and queue-age alerts, pre-expiry reminders and wider event coverage. These diagnostics are invitation-specific, not a general operations dashboard. Other foundation/provider, property/inventory/readiness, discovery/tours, agreements/signing/occupancy, rental finance, active tenancy/helpdesk/privacy, reviews/police/exit, dashboards, workspace/personal commerce, marketplace, AI and ARCH/INT gates remain incomplete. Full repository regression, hosted CI, manual screen-reader/low-bandwidth, representative high-volume query plans/load and production operational checks were not rerun. No complete-phase or production-readiness claim.
+
+# Reviewed expired-invitation replacement — checkpoint 2026-11-10
+
+Implemented the next expiry recovery slice for AUTH-001 / NOTIFY-001 (FS-01/02/22); overall requirements remain **Partial**. Owners can select **Review replacement** on an expired invitation, review the stored masked contact/workspace/scope/duration, and confirm a new invitation. The original remains expired. Cancellation has no effect; lost responses retain the exact command for retry.
+
+Backend/API: authenticated `POST /api/v1/workspaces/{w}/invitations/{id}/replace-expired`, strong If-Match, scoped idempotency, current owner authority and centralized eligibility. Contact/channel come from the authorized original. A shared private creation routine preserves existing active-member/pending-contact checks without crossing public command idempotency namespaces. V40 provides unique same-workspace lineage and prevents self-replacement. The workspace lock plus database constraint permits one replacement under competing keys. No manager slot is reserved; recipient acceptance independently checks capacity. Exact replay returns the prior resource, while changed confirmation conflicts. OpenAPI **0.38.0**, generated clients and invitation lineage projection are updated.
+
+Actual verification:
+- Maven `-Dtest=FoundationIntegrationTest test` against PostgreSQL/Testcontainers: **55 passed**, zero failures/errors/skips, including unexpired rejection, outsider/recipient denial, missing/stale version, competing-key single replacement, no premature allocation, mobile/email preservation, exact replay and changed-confirmation conflict. Rerun after internal creation isolation also passed.
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed, including final response header/error documentation.
+- `./scripts/compose-local.sh up -d --build --wait`: passed actual backend/frontend builds, V40 upgrade and runtime health.
+- `node web/tests/invitation-expiry.mjs`: passed actual worker expiry after restart, review cancellation with no record creation, mobile owner confirmation, lost-response replay, exactly one linked replacement, retained old record and recipient acceptance, keyboard/axe/reflow. This expanded test already runs in sequential Compose CI.
+- `python3 scripts/traceability.py`; `git diff --check`: passed; all source IDs/contracts/aliases retained.
+
+Demo: at http://localhost:3100/login, sign in as the workspace owner and open Members and invitations. For an expired record, select Review replacement and confirm. The recipient receives a new account-inbox invitation and must accept it. No external SMS/email is sent. See [ADR 0036](architecture/adrs/0036-expired-invitation-replacement.md).
+
+Remaining/next: expiry-worker diagnostics/recovery, pre-expiry reminders and further recipient-safe notification coverage. General foundation/provider prerequisites, property/inventory/readiness, discovery/tours, agreements/signing/occupancy, rental finance, active tenancy/helpdesk/privacy, reviews/police/exit, dashboards, workspace/personal commerce, marketplaces, AI and ARCH/INT gates remain incomplete. Full repository regression, hosted CI, manual screen-reader/low-bandwidth and production operational checks were not rerun. No phase completion, live invitation delivery or production-readiness claim.
+
+# Durable manager invitation expiry — checkpoint 2026-11-10
+
+Implemented persisted invitation expiry and authorized-owner in-app expiry notices for AUTH-001 / NOTIFY-001, FS-01/02/22; overall requirements remain **Partial**.
+
+- V39 adds terminal expired state, due index and a restricted bounded expiry function. It processes at most 25 due pending invitations, shares the existing workspace membership advisory lock, skips contention and rechecks state/deadline. No membership or manager allocation is created/released.
+- Jobs-only Java worker reconciles every 30 seconds after a 60-second startup delay. Expiry/version, system audit and current-owner notice commit atomically. Notification failure rolls back; due records remain available after recovery/restart. Revoked-owner notice suppression is audited, and repeated runs do not duplicate the notice.
+- Invitation UI shows actionable expired/replacement guidance. OpenAPI **0.37.0** documents existing expired projection versus durable processing and 409/412 behavior. No new browser command or external transport.
+
+Actual verification:
+- Maven `-Dtest=FoundationIntegrationTest test` with documented PostgreSQL/Testcontainers environment: **54 tests passed**, zero failures/errors/skips. New coverage includes injected notice failure rollback, simultaneous expiry workers and acceptance, one version/audit/notice, private recipient handling, revoked-owner suppression and replacement acceptance.
+- `npm --prefix web run generate`; `npm --prefix web run typecheck`: passed.
+- `./scripts/compose-local.sh up -d --build --wait`: passed actual backend/frontend builds, V39 upgrade and service health.
+- `node web/tests/invitation-expiry.mjs`: passed real worker expiry after restart, desktop owner/mobile invitee guidance, private owner notice, zero expiry quota consumption, replacement invitation acceptance, keyboard/axe/reflow. The test explicitly advances only its own invitation deadline; the real worker performs expiry. Added to sequential Compose CI.
+- `python3 scripts/traceability.py`; `git diff --check`: passed with 195 IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Demo: use existing owner/recipient accounts at http://localhost:3100/login and inspect invitation deadlines on the membership/invitation screens. Due invitations show expired immediately; after the worker pass the still-authorized inviter sees an expiry notice at `/account/notifications`. Send a new invitation only if access is still needed; its acceptance rechecks capacity. For the automated bounded test, run `node web/tests/invitation-expiry.mjs` against the local stack. See [ADR 0035](architecture/adrs/0035-durable-invitation-expiry.md).
+
+Remaining: pre-expiry reminders, recipient expiry notices, queue-age/retry-exhaustion UI and broader provider/event coverage. Persistent database/notice failures require operator investigation through worker logs; this slice does not claim full job operations recovery. Live identity/invitation prerequisites and other foundation, properties/inventory/readiness, discovery/tours, agreements/signing/occupancy, rental finance, active tenancy/helpdesk/privacy, reviews/police/exit, dashboards, workspace/personal commerce, marketplaces and AI/ARCH/INT gates remain incomplete. Full repository regression, hosted CI, manual screen-reader/low-bandwidth and production operations were not rerun. No phase completion or production-readiness claim.
+
+Next resumable step: strengthen expiry-job observability/recovery and source-defined reminder delivery without bypassing recipient authority or creating duplicate effects.
+
+# Owner invitation outcome notices — checkpoint 2026-11-10
+
+Implemented acceptance/decline notifications for the original inviting owner (AUTH-001 / NOTIFY-001, FS-01/02/22; overall status remains **Partial**). Account notification routes label these **Invitation outcome**, retain read/filter controls and link to current authorized workspaces. No invitee contact/profile is included.
+
+Backend: authorized membership response transaction calls the identity-owned notification interface. Current inviter authority is rechecked under the existing workspace lock; revoked-inviter declines remain allowed but notice suppression is audited. Replay does not duplicate or backfill notices. A deterministic outcome event, existing account/event uniqueness and command idempotency preserve one outcome. Membership/capacity, both parties' applicable notices, command result and audit commit atomically; notice-write failure rolls back with retryable 503. V38 adds the category; OpenAPI **0.36.0** and generated types are updated. No external provider or new business endpoint.
+
+Actual checks:
+- Maven `-Dtest=FoundationIntegrationTest test` with documented PostgreSQL/Testcontainers settings: **53 passed**, zero failures/errors/skips. Includes outsider denial, decline/accept replay, contact omission, recipient isolation, revoked-inviter suppression/no backfill after restoration, notice failure rollback and successful retry.
+- `npm --prefix web run generate` and `npm --prefix web run typecheck`: passed.
+- `./scripts/compose-local.sh up -d --build --wait`: passed actual backend/frontend builds, V38 upgrade and runtime health.
+- `node web/tests/workspace-access-notices.mjs`: passed extended desktop/mobile decline with lost response/replay, owner acceptance/decline notices, persisted read state, private recipient notices, revoked-resource denial, keyboard and axe/reflow. This test already runs in the sequential Compose CI job.
+- `python3 scripts/traceability.py` and `git diff --check`: passed. All 195 functional IDs, 36 FS contracts, 257 aliases, 14 ARCH and 12 INT gates retained.
+
+Demo: use the owner and invitee test accounts at http://localhost:3100/login. Send a manager invitation, decline or accept from the recipient, and open `/account/notifications` as the owner. Optional setup opt-in and quiet hours do not suppress this direct in-app invitation response. See [ADR 0034](architecture/adrs/0034-invitation-outcome-notices.md).
+
+Next resumable work: persisted invitation-expiry processing and recipient-safe expiry notifications/recovery. Expiry reminders, broader notification events, live invitation/provider prerequisites, remaining foundation work and the full property/tenancy/finance/helpdesk/review/police/exit/dashboard/commerce/marketplace/AI roadmap remain incomplete. Full repository regression, hosted CI, manual screen-reader/low-bandwidth and production operational checks were not rerun. No complete phase, live sending or production-readiness claim.
+
+# Essential workspace access notices — checkpoint 2026-11-10
+
+Implemented another AUTH-001 / NOTIFY-001 event-delivery slice (FS-01/02/22), with both requirements still **Partial** overall. Accepted manager membership and owner revocation now create account-owned in-app access notices. `/account/notifications` and its existing tenant/workspace aliases label them **Workspace access**, retain read/filter controls and link to currently authorized workspaces.
+
+Changes: identity-owned `WorkspaceAccessNotices` internal interface; workspace membership transaction integration; migration **V37** for the category; OpenAPI **0.35.0** and regenerated types. No new external provider, browser command or queue. Notices bypass optional setup opt-in/quiet hours; recipient scope is restored after the internal call. Membership/capacity/notice/audit commit atomically. Stable event references and command replay suppress duplicate notices. Revocation leaves account history available without restoring workspace authority.
+
+Actual verification:
+- Maven `-Dtest=FoundationIntegrationTest test`: **52 tests passed**, zero failures/errors/skips, including existing quota/race/isolation checks and new notice rollback/replay/privacy checks. The first new test expected 500 for an injected database failure; corrected to the application's documented retryable 503 and reran successfully.
+- `npm --prefix web run generate`, `npm --prefix web run typecheck`: passed.
+- `./scripts/compose-local.sh up -d --build --wait`: passed actual Java/Next builds, V37 upgrade and service health.
+- `node web/tests/workspace-access-notices.mjs`: passed desktop/mobile UI acceptance → access notice → revoke with lost response/replay → exactly one revocation notice; recipient privacy, revoked-resource denial, persisted read state, keyboard, axe and reflow. Added to the existing sequential Compose CI job.
+- Traceability and whitespace checks passed. Full-repository regression, hosted CI, manual screen-reader/low-bandwidth and production operational checks were not rerun and are not claimed passed.
+
+Demo: at http://localhost:3100/login, sign in as an owner, create a Free workspace, and invite a second test account. Accept in that account, then inspect `/account/notifications`. Revoke from the owner membership screen; the recipient retains the notice while workspace access returns 404. Email/mobile test login uses the existing Mailpit/SMS inboxes. See [ADR 0033](architecture/adrs/0033-workspace-access-notifications.md).
+
+Next resumable notification work: invitation outcome/expiry coverage and recipient-safe owner notifications. Live invitation/provider prerequisites remain unchanged. Wider foundation, property/inventory, discovery/leases, finance/helpdesk/privacy, reviews/police/exit, dashboards, SaaS/personal commerce, marketplaces and AI requirements remain tracked and incomplete; no phase completion or production-readiness claim.
+
+# Account pending notification deliveries — checkpoint 2026-11-10
+
+Delivered the next recorded foundation notification slice: `/account/notifications` and its existing aliases now show pending optional workspace-setup notices separately from delivered account history. AUTH-001 / NOTIFY-001 / MARKET-001 (FS-01/22) remain **Partial** overall.
+
+- Shows real queued/running/deferred/failed/blocked state, next-check time, snapshot/count, empty/loading/error states and bounded paging. Quiet-hour deferral explains shared-notice continuity. Existing preference and workspace recovery links preserve exact confirmation, authorization, ETag and idempotency controls.
+- Added authenticated read-only `GET /api/v1/me/notification-deliveries`, OpenAPI **0.34.0** and generated TypeScript contract. Workspace module owns the projection; identity supplies current consent through its interface. No new mutation, provider, queue or financial behavior.
+- Current recipient, active owner membership, consent/effective date and nonterminal state filter every page/count. Cursor is actor/purpose-bound, not authority. V36 adds a partial recipient/outbox index; existing durable worker state and audit remain the source of truth.
+
+Actual verification:
+
+| Command/check | Result |
+|---|---|
+| Maven `-Dtest=OperationsIntegrationTest test` with documented PostgreSQL/Testcontainers environment | PASS: 7 tests, zero failures/errors/skips |
+| `npm --prefix web run generate`; `npm --prefix web run typecheck` | PASS |
+| `./scripts/compose-local.sh up -d --build --wait` | PASS: actual images/frontend build, V36 upgrade and healthy runtime services |
+| `node web/tests/quiet-hours.mjs` | PASS: desktop/mobile pending visibility and authorized links, network error/refresh recovery, quiet-hour release after worker restart, disappearance after delivery, existing lost-response/keyboard/axe/reflow checks |
+| `python3 scripts/traceability.py`; `git diff --check` | PASS: 195 functional IDs, 36 FS, 257 aliases, 14 ARCH, 12 INT retained |
+
+Integration tests cover anonymous denial, cross-account visibility/cursor denial, malformed cursor, disjoint multi-page records/count, pre-consent exclusion, opt-out, revoked owner access, failed/completed states and deferred-state projection. Initial tests caught missing authenticated security-route registration; it was corrected and both backend and browser checks rerun successfully. Full repository regression, manual screen-reader/low-bandwidth checks, hosted CI and production operations were not rerun and are not claimed passed.
+
+Run/demo: start the Compose stack, enable optional workspace-setup notices and quiet hours containing the current IST time, create a workspace, and open http://localhost:3100/account/notifications. Review the pending entry, follow preferences to disable quiet hours, then refresh after the next worker check. Delivery moves into existing history without another message. See [ADR 0032](architecture/adrs/0032-personal-pending-notification-deliveries.md).
+
+Next resumable scope: broaden source-defined notification event/category coverage with recipient authorization and real delivery acceptance; current account view covers only optional workspace setup. Provider activation/receipts, assisted all-contact-loss recovery, other foundation gaps and full property/inventory/discovery/leasing/finance/helpdesk/reviews/police/exit/dashboards/membership/marketplace/AI roadmap remain incomplete. No phase completion or production-readiness claim; no external provider prerequisites were fabricated.
+
+## Local email and SMS inbox containers — 2026-11-09
+
+AUTH-001 / MARKET-001 (FS-01/22) remain **Partial** overall; this bounded sandbox delivery slice is implemented. Email verification is captured by Mailpit and mobile verification by a separate SMS simulator with durable SQLite storage. Login/verification show inbox links; OpenAPI 0.33.0 exposes the runtime `localContainers` flag. No new migration or dependency is required. Existing live adapters and native private-file delivery remain separate.
+
+Run `./scripts/compose-local.sh up -d --build --wait`; login at http://localhost:3100/login, email inbox at http://localhost:18025, SMS inbox at http://localhost:8026. Mailpit's usual port belongs to another project and was preserved. See [local inbox runbook](../infra/compose/LOCAL-INBOXES.md).
+
+Evidence:
+- Maven identity/delivery regression (`LiveIdentityIntegrationTest,LiveOtpTransportTest,IdentityConfigurationTest,FoundationIntegrationTest`): 57 passed, zero failures. Additional configuration guard run: 4 passed, including rejection of local inbox mode in live identity.
+- OpenAPI generation, TypeScript typecheck, actual frontend/backend/SMS Docker builds: passed. All seven runtime services healthy; migration job completed.
+- `signin-channels.mjs`: desktop/mobile registration and returning-account login for both channels passed using codes read from the real inbox containers.
+- `local-inbox-recovery.mjs`: durable SMS restart, same-body duplicate suppression, changed-body conflict, cross-origin write denial and unavailable-inbox unknown outcome with no authentication passed.
+- `compose-smoke.mjs`: actual UI, authorization denial, provisioning, private upload and session persistence after service recreation passed on rerun. First run raced inbox startup after the outage test; recovery test now waits for inbox health before returning.
+- Contact removal, notification inbox and notification preferences browser regressions passed with the shared container-code reader. Quiet-hours regression passed on an isolated rerun; its first run overlapped smoke-test service recreation and received a transient proxy response. These shared-stack destructive tests must run sequentially as configured in CI.
+- Traceability: 195 functional IDs / 36 FS / 257 aliases / 14 ARCH / 12 INT preserved. `git diff --check` passed.
+
+Recovery commits dispatch before network I/O, fences completion updates and audits outcomes. Unknown deliveries are not blindly resent. Code expiry/single-use/session binding remain backend-enforced. Container inboxes never establish live contact ownership; real email/SMS activation remains dependent on provider credentials, sender approval and external operational evidence. No wider phase completion is claimed. Next step: run the documented local flow with test contacts; broader AUTH-001 and unrelated roadmap gaps remain tracked below.
+
+# SMS/email sign-in integration — checkpoint 2026-11-09
+
+## Delivered implementation and external gate
+
+Implemented an end-to-end **live-mode sign-in/registration code path** using Twilio SMS and Resend email adapters. **Real sending is not activated or verified:** provider credentials, approved SMS sender/template, verified email sender and TLS files were not supplied. The default local environment remains sandbox-only. AUTH-001 / MARKET-001 (FS-01/22) remain Partial, with live acceptance blocked on those external inputs.
+
+- `/login` fetches public runtime identity configuration, offers SMS/email contact verification and shows appropriate sandbox/live/unavailable messaging. `/verify-otp` displays provider submission versus unknown/failure state and actual server expiry; no live code is exposed in browser/local files. `/account` supports a verified live account without presenting sandbox provisioning as available.
+- OpenAPI **0.32.0**, generated types: added `/auth/configuration` and live delivery/mode states. Java verifies codes and creates/reuses live-mode accounts, rotates Secure/HttpOnly sessions and enforces CSRF/origin, expiry, attempts, session revocation, per-contact/session limits and an explicit global hourly live request cap. Cross-mode challenge/account/session authentication is denied; no sandbox account conversion/merge.
+- **V35** persists challenge mode, dispatch fencing/time, provider reference and sanitized outcome. The API commits durable intent before the worker sends; HTTP calls occur outside database transactions. Fixed provider hosts, bounded response bodies, timeouts, no redirects, worker-only provider secrets and separate OTP key are used.
+- Email retries use stable provider idempotency. Retry-safe rejection/transient paths have bounded backoff/jitter; ambiguous SMS outcomes and crash-lost acknowledgements remain unknown rather than being blindly resent. Recovery decisions and dispatch/outcome audits contain IDs/status only. Provider acceptance is never labeled handset/mailbox delivery.
+- Added a separate opt-in TLS Compose overlay, private live-secret preparation and startup prerequisite checks. Default sandbox database/volumes are retained. Real live stack was not started because prerequisites are missing. Live account recovery/linking and workspace provisioning retain separate gates; carrier delivery callbacks and reconciliation UI are not implemented here.
+
+## Actual verification
+
+| Command | Result |
+|---|---|
+| Backend Maven `verify` with documented OrbStack/Testcontainers environment | PASS: **91 tests**, zero failures/errors/skips |
+| Focused `LiveIdentityIntegrationTest,LiveOtpTransportTest,IdentityConfigurationTest` after final recovery/origin hardening | PASS: **6 tests** |
+| `LiveOtpTransportTest` after explicit failed-provider status handling | PASS |
+| `npm --prefix web run generate`; `npm --prefix web run typecheck` | PASS |
+| `./scripts/compose-local.sh build`; `./scripts/compose-local.sh up -d --wait` | PASS: actual Java/Next images, V35 upgrade and sandbox service health |
+| `node web/tests/compose-smoke.mjs`; `node web/tests/contact-removal.mjs` | PASS: existing real sandbox journeys and desktop/mobile identity regression |
+| `node web/tests/signin-channels.mjs` | PASS: desktop/mobile mobile/email registration, returning-account login, runtime banner, keyboard submission and logout |
+| Live overlay `docker compose ... config --no-env-resolution --quiet` with explicit test HTTPS origin | PASS: configuration syntax; no real credentials loaded or messages sent |
+| `./scripts/compose-live.sh config --quiet` without required files | Expected fail-closed: missing `.local/live/runtime.env` |
+| `python3 scripts/traceability.py`; `git diff --check` | PASS: all IDs/contracts/aliases retained |
+
+Live integration tests use **real HTTPS, PostgreSQL and actual adapter serialization against isolated HTTP fixture servers** for both channels; they verify Secure/HttpOnly cookies, authenticated profile access, challenge isolation and lost SMS dispatch recovery. Transport tests verify safe failure classification and stable email idempotency. These fixtures are simulated provider responses, not real SMS/email receipts. No approved-provider sandbox/live account test, real inbox/handset delivery, manual screen-reader/low-bandwidth check, remote CI, production scan/restore/capacity or full native browser suite is claimed passed.
+
+## Activate and resume
+
+Follow [live identity setup](../infra/compose/LIVE-IDENTITY.md): run `python3 scripts/prepare-live-identity.py`, supply the actual provider secrets and approved sender configuration under ignored `.local/live/`, provide TLS, choose a request cap, and validate/start with `./scripts/compose-live.sh`. Do not paste keys into chat. The provider-selection question remains unanswered; Twilio/Resend are implementation defaults, not evidence of provider approval or purchase.
+
+The next required acceptance step is a controlled real SMS and real email sign-in at the configured HTTPS origin, including returning-account verification and provider-log inspection. Carrier receipts/reconciliation, broader live recovery/linking, production abuse/retention and all previously tracked rental/product/ARCH/INT gaps remain incomplete. No full Phase 1 or production-readiness claim. See [ADR 0031](architecture/adrs/0031-live-sign-in-delivery.md).
+
+---
+
+# Optional notification quiet hours — checkpoint 2026-11-09
+
+## Delivered scope
+
+**NOTIFY-001 / FS-22 remains Partial frontend/backend.** Implemented configurable quiet hours for the existing optional personal workspace setup notice. All prior uncommitted slices remain preserved.
+
+- `/account/notification-preferences` adds enabled/start/end controls, distinct HH:mm validation, explicit Asia/Kolkata interpretation, overnight support and exact interval confirmation. Start inclusive, end exclusive. Equal times are rejected. Quiet hours default off; legacy clients omitting the group preserve current settings.
+- OpenAPI **0.31.0**, generated types and **V34** persist/expose validated quiet policy. Existing scoped authorization, CSRF, If-Match, idempotency and security-change notice apply.
+- Existing outbox worker commits the shared workspace notice immediately. During quiet hours only the personal copy remains pending, with `QUIET_HOURS_DEFERRED` and durable next-check time. Creator authority, current consent and quiet policy are checked on each execution. Restart resumes the pending record.
+- Policy rechecks occur at the earlier of quiet-hour end or 60 seconds. Deferral records audit/attempt evidence and releases the lease without consuming a failure-cycle attempt. Actual failures retain bounded retry/recovery. Duplicate completion cannot create another notice. Essential security notices remain immediate.
+- Workspace operations UI explains partial delivery and recheck timing. No extra queue, broker or external provider was introduced. V34 applied over existing V33 data.
+
+## Actual verification
+
+| Command | Result |
+|---|---|
+| Backend Maven `verify` with the documented OrbStack/Testcontainers environment | PASS: **87 tests**, zero failures/errors/skips |
+| `npm --prefix web run generate`; `npm --prefix web run typecheck` | PASS |
+| `./scripts/compose-local.sh build`; `./scripts/compose-local.sh up -d --wait` | PASS: Java/Next images/build, V34 upgrade and healthy services |
+| `node web/tests/quiet-hours.mjs` | PASS: desktop/mobile policy persistence, actual pending delivery, immediate shared/security notices, worker restart, changed-policy release, lost-response recovery, keyboard/axe/reflow |
+| `node web/tests/notification-preferences.mjs` | PASS: existing desktop/mobile opt-in/opt-out regression |
+| `python3 scripts/traceability.py`; `git diff --check` | PASS: 195 IDs, 36 FS, 257 aliases, 14 ARCH and 12 INT preserved |
+
+Unit coverage checks same-day/overnight and exact start/end India-time boundaries. PostgreSQL tests check incomplete/malformed/equal-time rejection, replay and legacy update preservation; seven consecutive quiet deferrals remain pending with zero charged failure attempts, shared notice exists once, and later delivery is deduplicated. Browser tests use the real minute-scale recheck and restart the worker. Manual screen-reader/low-bandwidth checks, full native browser suite, hosted CI, security/dependency scans, live providers and production restore/capacity drills were not rerun and are not claimed passed.
+
+## Run and next work
+
+Open http://localhost:3100/account/notification-preferences, enable optional workspace setup notices and quiet hours, then choose an interval containing the current IST time. Create a workspace. Its shared notice appears immediately; `/workspace/operations?workspace=…` explains why the personal copy is pending. Disable quiet hours and the personal notice should arrive on the next check within 60 seconds. Existing history remains; cancellation cannot recall a shared notice already delivered. See [ADR 0030](architecture/adrs/0030-optional-notice-quiet-hours.md).
+
+Next independent notification work is account-scoped pending-delivery visibility/recovery beyond the workspace-owner operations screen, followed by additional source-defined event/category coverage. Other channels, provider consent/callbacks and metering remain incomplete. Repeated attempt retention and high-volume queue capacity remain production decisions. Full-source gaps remain in assisted all-contact-loss recovery, general quota recovery, production identity, properties/inventory/readiness, discovery/tours/appointments, signing/occupancy, finance, active tenancy/helpdesk/privacy, reviews/police/exit, dashboards, workspace/personal commerce, marketplaces, advertising/AI and ARCH/INT gates. No Phase 1 completion or production-readiness claim.
+
+---
+
+# Enforced notification preferences — checkpoint 2026-11-09
+
+## Delivered scope
+
+**NOTIFY-001, FS-22 remains Partial frontend/backend.** Added a working optional account notification preference and connected it to the existing authorized workspace setup outbox handler. Prior contact-removal and inbox work is preserved.
+
+- `/account/notification-preferences`: default-off opt-in, current version, explicit review/confirmation, loading/error/stale handling, unsaved-change warning and exact-command recovery after an unknown response. Inbox navigation links settings and displays security/workspace setup category.
+- `GET/PATCH /me/notification-preferences`, OpenAPI **0.30.0**, generated client. Account-owned scope, CSRF, validated boolean, strong ETag and idempotency; no plan gate or client-supplied account authority.
+- **V33** adds preference/activation timestamp with account RLS, notice category/source-event fields and recipient/event uniqueness. Preference changes commit command evidence, audit and an essential security notice together. Historical read-command replay defaults to the security category.
+- Worker checks current consent and event creation time under the same preference lock used by updates. No past-event backfill; one personal copy per event. Disabling after claim suppresses the personal copy. Shared workspace notice and essential security notices remain unaffected. Suppression/delivery receive distinct audit actions; no external provider or charge is represented.
+- Added Compose browser verification to CI. V33 upgraded the existing V32 stack without discarding data.
+
+## Actual verification
+
+| Command | Observed result |
+|---|---|
+| Backend Maven `verify` using the documented OrbStack/Testcontainers environment | PASS: **83 tests**, zero failures/errors/skips |
+| `npm --prefix web run generate`; `npm --prefix web run typecheck` | PASS |
+| `./scripts/compose-local.sh build`; `./scripts/compose-local.sh up -d --wait` | PASS: backend/frontend images, Next build, V33 upgrade, healthy services |
+| `node web/tests/notification-preferences.mjs` | PASS: desktop/mobile real opt-in → workspace → worker → inbox; opt-out, shared/security continuity, lost-response recovery, persisted preference, keyboard/axe/reflow |
+| `node web/tests/notification-inbox.mjs` | PASS: existing desktop/mobile inbox regression |
+| `python3 scripts/traceability.py`; `git diff --check` | PASS: 195 functional IDs, 36 FS, 257 aliases, 14 ARCH and 12 INT retained |
+
+New backend coverage proves default off, cross-account preference isolation, missing/stale preconditions, validation, exact replay and changed-body conflict. Worker tests prove old events are not backfilled, repeated completion does not duplicate notices, and preference revocation after claim is honored while shared delivery succeeds. Native full browser suite, manual screen-reader/low-bandwidth checks, hosted CI, dependency/secret scans, live providers and production restore drills were not rerun and are not claimed passed.
+
+## Run and next step
+
+Open http://localhost:3100/account/notification-preferences. Enable and confirm, create a new sandbox Free workspace, then inspect `/account/notifications`. Disable and create another workspace: its setup/shared notice remains, while no additional personal setup notice is delivered. Existing notice history is retained. See [ADR 0029](architecture/adrs/0029-enforced-account-notification-preferences.md).
+
+Next notification slice is quiet-hour scheduling for optional account delivery with durable deferral/recovery; it must preserve security notices, recheck consent and avoid consuming retry attempts merely because delivery is deferred. Other categories, email/SMS/WhatsApp/push, provider consent/callbacks and metering remain incomplete. No live provider claim, Phase 1 completion or production-readiness claim.
+
+Full-source gap review retains assisted all-contact-loss recovery, general quota recovery, production identity, properties/inventory/readiness, discovery/tours/appointments, signing/occupancy, rental finance, active tenancy/helpdesk/privacy, reviews/police/exit, dashboards, workspace/personal commerce, marketplaces, advertising/AI and remaining ARCH/INT gates.
+
+---
+
+# Account notification inbox — checkpoint 2026-11-09
+
+## Delivered scope
+
+**NOTIFY-001 / MARKET-001, FS-22 remain Partial frontend/backend.** Added a dedicated, real account-security inbox at `/account/notifications`, `/tenant/notifications` and `/workspace/notifications`. All routes show only the authenticated account's notices; route placement grants no workspace or tenancy access. Existing `/account/security` embedded notices remain supported. Earlier uncommitted contact-removal changes are preserved.
+
+- All/unread/read filter is retained in the URL. Shows occurrence/read times in IST, filtered total, account-wide unread count, freshness, empty/error states and durable read actions. Unknown mutation outcomes retain the command for exact retry; filter changes abort obsolete requests and reset paging.
+- OpenAPI **0.29.0** and generated client add `status` to both GET notification routes. API validates filters and binds opaque cursors to actor/filter. Newest-first ordering uses occurrence time with UUID tie-breaker. Filtered totals and unread count share a repeatable-read transaction with scoped records.
+- **V32** adds history/unread indexes. Existing RLS, notification records, strong read-state versions, idempotency log and audit remain the authority. No historical event/read evidence is rewritten.
+- Added account/security navigation and private/no-store, noindex coverage for the tenant route. Compose CI now runs the new browser journey.
+
+## Actual verification
+
+| Command | Result |
+|---|---|
+| Backend Maven `verify` with README OrbStack/Testcontainers environment | PASS: **81 tests**, no failures/errors/skips |
+| `npm --prefix web run generate`; `npm --prefix web run typecheck` | PASS |
+| `./scripts/compose-local.sh build`; `./scripts/compose-local.sh up -d --wait` | PASS: actual images, Next build, V31→V32 upgrade, healthy services |
+| `node web/tests/notification-inbox.mjs` | PASS: desktop/mobile real routes, empty/read filters, uncertain-read recovery, URL/reload, private cache, unauthenticated denial, keyboard/axe/reflow |
+| `python3 scripts/traceability.py`; `git diff --check` | PASS: 195 IDs, 36 FS, 257 aliases, 14 ARCH, 12 INT preserved |
+
+Backend coverage includes latest-event ordering, equal timestamp pagination, no duplicate/missing pages after marking a notice read, filtered totals versus global unread count, invalid filters and cross-actor/filter cursor denial. The first browser run exposed an ambiguous test selector matching the Next route announcer; narrowing it to the application alert produced a passing rerun. Native full browser suite, manual screen-reader/low-bandwidth tests, hosted CI, live providers, dependency/secret scans and production restore drills were not rerun and are not claimed passed.
+
+## Run and remaining work
+
+Open http://localhost:3100/account/notifications after sandbox sign-in. Change a profile display name to create a real security notice, select Unread, mark it read, then select Read to inspect retained history. The tenant/workspace notification routes show the same account inbox, clearly labeled as such.
+
+[ADR 0028](architecture/adrs/0028-account-notification-inbox.md) documents scope and paging semantics. Channel/category/quiet-hour controls are still incomplete: only essential account-security notices are currently exposed, so this delivery does not add inert preference switches or suppress those notices. Next concrete notification slice is an account-owned optional event/delivery policy with enforced preferences and consent, leaving workspace-owned broadcasts independent. Assisted all-contact-loss recovery, general quota recovery and production identity also remain open.
+
+Full-source gap review preserves unfinished properties/inventory/readiness, discovery/tours/appointments, signing/occupancy, finance, active tenancy/helpdesk/privacy, reviews/police/exit, dashboards, workspace/personal commerce, marketplaces, advertising/AI and architecture/integration gates. No Phase 1 completion or production-readiness claim.
+
+---
+
+# Retained-contact removal — checkpoint 2026-11-09
+
+## Delivered scope
+
+**AUTH-001 / MARKET-001 remain Partial frontend/backend (FS-01/22, Phase 1).** Implemented removal of one linked sign-in contact after fresh current-session proof through the contact being kept. Existing account/workspace access is preserved; no implicit merge or transfer. This is a functioning local sandbox slice, not live identity verification.
+
+- New `/account/identity-links/remove` screen displays masked target/retained contact, account/version and immediate consequences, with keyboard-focused confirmation, retry-safe uncertain response handling, loading/errors, last-contact guidance and navigation to reauthentication/linking.
+- OpenAPI **0.28.0**, generated client: `POST /me/identity-links/unlink`. Validated channel, authenticated actor, CSRF/origin, strong profile ETag and actor-scoped idempotency. A generic recent login or proof through the removed contact is insufficient.
+- **V31** adds channel/profile-version proof binding to existing session records. Reauthentication records it; removal requires both contacts and a matching fresh proof. Existing PostgreSQL last-contact constraint remains authoritative.
+- Identity module atomically removes contact, increments profile/authentication generation, advances proof invalidation cutoff, invalidates outstanding challenges, revokes other sessions, and writes command result/audit/security notice. Account-generation locks serialize competing removals and registration/linking/reauthentication. Exact retries do not duplicate audit or effects.
+- Runtime containers updated and V31 applied over the existing V30 database. Existing volumes and sandbox records retained. CI Compose job now includes the new browser journey.
+
+## Actual verification
+
+| Command | Observed result |
+|---|---|
+| `DOCKER_HOST=unix:///Users/mwgbh/.orbstack/run/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock JAVA_HOME=$(/usr/libexec/java_home -v 21) ./backend/mvnw -f backend/pom.xml -B -ntp verify` | PASS: **80 tests**, no failures/errors/skips |
+| `npm --prefix web run generate`; `npm --prefix web run typecheck` | PASS: generated contracts and strict types |
+| `./scripts/compose-local.sh build`; `./scripts/compose-local.sh up -d --wait` | PASS: actual images, frontend build, V31 upgrade and healthy services |
+| `node web/tests/contact-removal.mjs` | PASS: desktop/mobile real UI → link → retained proof → removal, lost-success replay, durable profile, other-session denial, keyboard/axe/reflow |
+| `python3 scripts/traceability.py`; `git diff --check` | PASS: all 195 IDs, 36 FS, 257 aliases, 14 ARCH and 12 INT retained |
+
+Backend tests cover last-contact protection, required retained-channel proof, missing/stale preconditions, wrong-account profile, exact replay/changed-body conflict, proof invalidation and one audit event. Simultaneous opposite-contact removals produce exactly one success, leaving exactly one contact. Existing regression tests cover identity recovery, invitation scopes/quotas, storage, catalogue and operations. The native 72-test browser suite, manual screen-reader/low-bandwidth tests, live providers, hosted CI, security scanning and production restore drill were not rerun; these are not claimed passed.
+
+## Run and next work
+
+At http://localhost:3100, link both contacts, open `/account/reauthenticate` and prove the contact you will keep, then visit `/account/identity-links/remove` within five minutes. Review and confirm. After an uncertain response use **Retry same removal**. Removing the last contact is blocked. A later sign-in using the removed contact can create a separate account; confirmation discloses this behavior.
+
+See [ADR 0027](architecture/adrs/0027-retained-contact-removal.md). Assisted recovery with no accessible contacts and reviewed account-merge policy remain unresolved; production identity/notification delivery, abuse/retention policy, notification preferences and general reservation recovery remain incomplete. Next independent foundation slice is account-owned notification preferences with enforceable delivery behavior. Full-source gap review retains all outstanding property/inventory/readiness, discovery/tours/appointments, signing/occupancy, rental finance, active tenancy/helpdesk/privacy, reviews/police/exit, dashboard, workspace/personal commerce, marketplace, advertising/AI and ARCH/INT gates. No Phase 1 completion or production-readiness claim.
+
+---
+
 # Full-stack local Docker Compose — checkpoint 2026-11-09
 
 ## Delivered scope

@@ -113,3 +113,81 @@ Enable local-only allow/deny/inherit for WORKSPACE_MEMBER_ADD with explicit acco
 ## Local Compose deployment — 2026-11-09
 
 Use a distinct `lmt-stack` project with local sandbox identity and private filesystem storage. No new live provider is selected. Production identity/TLS, encrypted object storage/scanning, managed secrets, tested backup/restore, capacity targets and alert ownership remain unresolved deployment prerequisites. See ADR 0026 and `infra/compose/README.md`.
+
+## Contact removal — 2026-11-09
+
+Accepted sandbox policy: require both contacts and fresh proof of the retained contact; revoke other sessions and outstanding proofs. Removed contact may subsequently establish a separate account through ordinary sign-in, never an implicit merge/transfer. This consequence is disclosed before confirmation. Production provider/retention and assisted all-contact-loss/merge policies remain unresolved. See ADR 0027.
+
+## Account inbox and preferences boundary — 2026-11-09
+
+Ship real account-owned security notice filtering on account/tenant/workspace navigation surfaces. Do not mute essential security notices or claim unconnected channel/category/quiet-hour settings are effective. Optional account delivery events/channels and their consent/essential-message policy must be implemented with preferences. Workspace operational notices remain separately scoped. See ADR 0028.
+
+## Optional workspace setup account copy — 2026-11-09
+
+Opt-in defaults off. Only events created during the current enabled period qualify, and consent is rechecked at execution. No historical backfill, paid-plan gate, external delivery or charge. Shared workspace notices and essential security notices remain unaffected. Quiet hours and other channels/categories retain separate implementation and provider/consent decisions. See ADR 0029.
+
+## Optional quiet hours — 2026-11-09
+
+Use explicit Asia/Kolkata wall-clock times, half-open intervals and disabled-by-default configuration. Equal start/end is invalid. Reuse existing durable work with at most one policy check/event/minute to observe preference changes; avoid cross-module queue writes or a new broker. Production retention/capacity policy for repeated attempt evidence remains open. No quiet-hour suppression of security/shared notices. See ADR 0030.
+
+## Live sign-in delivery implementation — 2026-11-09
+
+Twilio SMS + Resend email are implementation defaults while the requested provider-selection question remains unanswered; no provider purchase or approval is inferred. Live activation requires operator credentials, approved Indian sender/template/route, verified email domain/address, TLS and an explicit hourly request ceiling. Worker-only provider secrets and a separate live database are required. Uncertain SMS submissions are not automatically duplicated; email uses provider idempotency. Carrier receipt callbacks, reconciliation UI, broader live identity/workspace policies, retention and production abuse controls remain pending. See ADR 0031 and `infra/compose/LIVE-IDENTITY.md`.
+
+
+### Local verification inbox selection — 2026-11-09
+
+User selected Mailpit for sandbox email and an SMS container for mobile codes. Use digest-pinned Mailpit HTTP capture plus a separate dependency-free Node/SQLite SMS simulator. No external carrier/provider is implied. Local host ports are 18025 and 8026; 8025 belongs to another project and remains untouched. Sandbox-only activation fails closed in live identity. Native private-file delivery is preserved. Mailpit supports hour/day retention, so email retention is one hour; SMS retention is six minutes, while all OTPs expire five minutes after request. See `infra/compose/LOCAL-INBOXES.md`.
+
+## Property capacity and activation — 2026-11-10
+
+Superseded for new sandbox workspaces by SAAS-QUOTA-002 (2026-11-10): select the recommended independent-item baseline, policy 2, counting beds without double-counting shared containers. Existing workspaces retain policy 1 and its shared-unavailable behavior. Bindings are immutable; no historical contract is silently changed. Production shared counting remains unapproved. Whole-unit development counting includes all nonarchived drafts; property/building/floor containers consume no rentable allowance. See ADR 0048.
+
+Verified property authority, signing/approval/payee policy and relevant jurisdictional requirements are not inferred from workspace ownership or an address. Property setup can be saved and reviewed, but activation is unavailable pending the necessary workflows. No maps provider or legal verification provider is selected by this change. Manual coordinates require both bounded latitude and longitude. See ADR 0038 and the property scope checkpoint in the requirements matrix.
+
+## Subscription dashboard availability — 2026-11-10
+
+For the existing `active_free` contract, recurring billing dates, paid renewal and next invoice are not applicable, not fabricated zero-value invoices. Add-ons, communication metering and SaaS payment history are unavailable until their owning workflows exist. Published alternatives are comparison baselines, not purchasable upgrades. Current owners are the implemented billing administrators; manager membership does not grant billing access. Separate delegated billing authority remains future work. See ADR 0039; no commercial prices/provider approval inferred.
+
+## Upgrade verification mode — 2026-11-10
+
+No paid prices, tax/proration approval or payment provider configuration was available. An optional mode question was sent; no answer was received during implementation. Proceeded with explicitly labeled local simulation as stated in progress updates, consistent with sandbox adapters in repository instructions. Live purchases remain unavailable. Test prices/taxes are explicit operator inputs, not seeded commercial defaults. The initial supported effective-time policy is immediate after successful sandbox settlement, with no automatic renewal. Paid-period test credit uses unused base time and HALF_UP rounding; production credit/tax policy remains a decision. See ADR 0040.
+
+
+## Scheduled downgrade continuation — 2026-11-10
+
+The implemented local rule applies paid-to-Free at the existing subscription period end, retains excess usage and blocks new capacity consumption. It does not impose a security suspension, delete records, collect a fee or infer a refund. This is a sandbox policy, not approved live commercial terms. Paid-to-paid targets require renewal pricing/verified settlement and remain unavailable; the Gold 120 → Silver source scenario remains pending. Feature review uses known policy at the later of boundary/current time and rejects subsequently changed terms. See ADR 0041 for worker recovery and capacity integrity. Existing essential lifecycle and production gaps remain tracked under their original IDs.
+
+
+## Cancellation continuation — 2026-11-10
+
+Local policy `sandbox-paid-cancellation-v1` ends simulated paid access at the stored period boundary and continues on Free. This does not close the workspace or revoke existing members. Shared request status `cancelled` means withdrawn, while `applied` means the paid-to-Free transition committed. Immutable review terms track retention and explicit refund/credit non-applicability; null amounts do not represent a processed zero-value refund. No production retention duration, legal hold, refund eligibility, credit accounting, mandate cancellation or signing-provider behavior is inferred. Those decisions and implementations remain prerequisites for live cancellation. See ADR 0042.
+
+
+## Failed payment continuation — 2026-11-10
+
+Local upgrade retry policy `sandbox-upgrade-retry-v1` explicitly allows three total manually confirmed attempts and a 30-second cooldown after definitive failure. It is development configuration, not approved live merchant or renewal policy. Upgrade failures do not make an existing subscription delinquent: grace is not applicable, no countdown or access reduction is invented. Legacy retry history is unknown; a failed legacy request needs fresh terms. Approved renewal pricing/collection, grace periods, restricted capabilities, reminder/mandate behavior and recovery remain separate decisions/implementation prerequisites. See ADR 0043.
+
+
+## Subscription receipt recovery continuation — 2026-11-10
+
+Keep durable payment evidence separate from activation success. Local callback simulation uses owner session/CSRF and never claims provider signature verification. Receipt-valid quotes may activate after expiry if delayed; changed commercial terms need review. Reversals create preserved review cases and hold discretionary subscription changes without automatic deletion, refund or entitlement removal. Approved live provider verification, reversal compensation/operator resolution and cancellation-during-renewal policy remain explicit prerequisites. The tested cancellation-versus-upgrade guard does not substitute for renewal coverage. See ADR 0044.
+
+
+## Entitlement layering continuation — 2026-11-10
+
+Central precedence is plan/add-on/timed allows, deny-wins commercial overrides, then subscription/workspace/security and operational gates. Current protected corrections cannot be denied by historical-policy inputs. Source example codes are represented without advertising unbuilt features; PROPERTY_MANAGEMENT identifies the implemented register/inventory subset. New supplemental inputs are privileged local configuration bound to the current plan, never evidence of a paid add-on. Live purchase/activation, complete commercial matrix and production governance remain prerequisites. See ADR 0045.
+
+### Unit capacity warning and import dependency — 2026-11-10
+
+Use 80% of the effective grant as a UI warning threshold, not a new commercial quota. Keep Free/Silver/Gold/Platinum defaults and contract-defined Diamond unchanged. Existing whole-unit development counting remains in force; shared counting approval is unresolved. Bulk imports remain unavailable until FS-32 reservation/expiry, scoped durable execution, per-source outcomes and partial recovery are implemented. Fail closed on inventory/evidence mismatch; production operator reconciliation must preserve audited history and is not automated by this change. See ADR 0047.
+
+### Communication measurement — 2026-11-10
+
+Only an explicitly configured local `provider_accepted` metric is supported for workspace email/SMS tests. No default commercial allowances or prices are inferred. Periods, channel and quantity must be configured explicitly by the local operator. Delivery, attempted and charged metrics require distinct trusted evidence and are not selectable yet; WhatsApp/other providers are unavailable. Sign-in traffic is platform/account-owned and excluded from workspace metering. Live policy, providers, invoice correlation, callback verification and operator reconciliation UI remain prerequisites. See ADR 0049.
+
+### Recovery and catalog continuation — 2026-11-10
+
+Local owner reconciliation now supersedes the earlier pending reconciliation-UI note: exact retained acceptance evidence can resolve an unknown operation without resend. Missing evidence, legacy fingerprints and production providers still require future resolution policy. Period history uses complete contract totals selected by overlap, not prorated date totals (ADR 0050).
+
+Amenity definitions retain stable codes and all historical spelling reservations. Source defaults are editable configuration, not installed inventory. Owners can administer this catalog; delegated property administration and physical assessments remain pending (ADR 0051). No new production commercial or legal policy is inferred.

@@ -36,8 +36,8 @@ public class AccountController {
         return controls.revoke(UUID.fromString(auth.getName()),request.getSession().getId(),id,key,expected);
     }
     @GetMapping({"/security-notifications","/notifications"})
-    public AccountControls.Notices notifications(Authentication auth,@RequestParam(required=false) String cursor) {
-        return controls.notices(UUID.fromString(auth.getName()),cursor);
+    public AccountControls.Notices notifications(Authentication auth,@RequestParam(required=false) String cursor,@RequestParam(defaultValue="all") String status) {
+        return controls.notices(UUID.fromString(auth.getName()),cursor,status);
     }
     @PostMapping("/notifications/{id}/read")
     public ResponseEntity<AccountControls.Notice> readNotification(Authentication auth,@PathVariable UUID id,

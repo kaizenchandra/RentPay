@@ -14,6 +14,7 @@ public class WorkspaceCommands {
   db.sql("INSERT INTO workspace_settings(workspace_id) VALUES(:w)").param("w",id).update();
   db.sql("INSERT INTO workspace_consent(workspace_id,account_id,policy_version) VALUES(:w,:a,'sandbox-use-v1')").param("w",id).param("a",actor).update();
  }
+ public void requireMember(UUID id,UUID actor){scope(actor);if(!db.sql("SELECT EXISTS(SELECT 1 FROM workspace_member WHERE workspace_id=:w AND account_id=:a AND active)").param("w",id).param("a",actor).query(Boolean.class).single())throw new ApiProblem(404,"WORKSPACE_NOT_FOUND","Workspace is unavailable.");}
  public void requireOwner(UUID id,UUID actor){
   scope(actor);
   if(!db.sql("SELECT EXISTS(SELECT 1 FROM workspace_member WHERE workspace_id=:w AND account_id=:a AND active AND role='OWNER')").param("w",id).param("a",actor).query(Boolean.class).single())throw new ApiProblem(404,"WORKSPACE_NOT_FOUND","Workspace is unavailable.");

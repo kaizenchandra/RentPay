@@ -18,6 +18,8 @@ public class IdentityController {
  private final ChallengeService service;private final IdentityConfig config;private final Audit audit;private final AccountControls controls;
  public IdentityController(ChallengeService service,IdentityConfig config,Audit audit,AccountControls controls){this.service=service;this.config=config;this.audit=audit;this.controls=controls;}
  public record Csrf(String token,String headerName){}
+ public record Configuration(String mode,List<String> channels,boolean localContainers){}
+ @GetMapping("/auth/configuration") public Configuration configuration(){return new Configuration(config.mode,config.sandbox||config.live?List.of("mobile","email"):List.of(),config.localContainers);}
  public record Session(boolean authenticated,String mode,ChallengeService.Account account){}
  public record RequestCode(@NotNull @Pattern(regexp="mobile|email") String channel,
    @NotBlank @Size(max=254) String destination,
@@ -25,7 +27,7 @@ public class IdentityController {
    @NotBlank @Size(max=100) String displayName){}
  public record Verify(@NotNull @Pattern(regexp="[0-9]{6}",message="Enter the six-digit code.") String code){}
  @GetMapping("/auth/csrf") public Csrf csrf(CsrfToken token,HttpServletRequest request){request.getSession().setMaxInactiveInterval(request.getUserPrincipal()==null?300:1800);return new Csrf(token.getToken(),token.getHeaderName());}
- @GetMapping("/auth/session") public Session session(Authentication auth){return new Session(auth!=null,config.sandbox?"sandbox":"unavailable",auth==null?null:service.account(UUID.fromString(auth.getName())));}
+ @GetMapping("/auth/session") public Session session(Authentication auth){return new Session(auth!=null,config.mode,auth==null?null:service.account(UUID.fromString(auth.getName())));}
  @PostMapping(value="/auth/challenges",consumes="application/json") public ResponseEntity<ChallengeService.Challenge> request(@Valid @RequestBody RequestCode body,@RequestHeader("Idempotency-Key") UUID key,HttpServletRequest q){
    var result=service.request(q.getSession().getId(),key,body.channel(),body.destination(),body.displayName());
    return ResponseEntity.accepted().header("Location","/api/v1/auth/challenges/"+result.id()).body(result);
@@ -42,7 +44,7 @@ public class IdentityController {
    new HttpSessionCsrfTokenRepository().saveToken(null,q,r);
    var context=SecurityContextHolder.createEmptyContext();context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(account.id().toString(),null,List.of()));
    SecurityContextHolder.setContext(context);new HttpSessionSecurityContextRepository().saveContext(context,q,r);
-   return new Session(true,config.sandbox?"sandbox":"unavailable",account);
+   return new Session(true,config.mode,account);
  }
  @PostMapping("/auth/logout") public ResponseEntity<Void> logout(Authentication auth,HttpServletRequest q){
    UUID account=UUID.fromString(auth.getName());controls.logout(account,q.getSession().getId());

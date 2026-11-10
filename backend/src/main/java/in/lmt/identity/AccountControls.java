@@ -24,12 +24,14 @@ public class AccountControls {
         this.reauthenticationSeconds = reauthenticationSeconds;
     }
 
+    @Transactional(readOnly=true) public boolean identityModeAllowed(UUID actor,String mode){return db.sql("SELECT EXISTS(SELECT 1 FROM user_account WHERE id=:a AND identity_mode=:mode)").param("a",actor).param("mode",mode).query(Boolean.class).single();}
+
     public record Profile(UUID id, String displayName, String mode, String maskedMobile, String maskedEmail, int version, String etag) {}
     public record SessionView(UUID id, String clientLabel, Instant signedInAt, Instant lastActiveAt, boolean current, int version, String etag) {}
     public record Page(int limit, String nextCursor) {}
     public record Sessions(List<SessionView> items, Page page, int totalMatching, Instant asOf) {}
     public record Revoked(UUID id, String status) {}
-    public record Notice(UUID id, String message, Instant occurredAt, Instant readAt, int version, String etag) {}
+    public record Notice(UUID id, String message, Instant occurredAt, Instant readAt, int version, String etag, String category) { public Notice { if(category==null)category="security"; } }
     public record Notices(List<Notice> items, Page page, int totalMatching, int unreadCount, Instant asOf) {}
 
     private void scope(UUID actor) {
@@ -167,14 +169,25 @@ public class AccountControls {
     }
 
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public Notices notices(UUID actor, String cursor) {
+    public Notices notices(UUID actor, String cursor, String filter) {
         scope(actor);
-        var rows = db.sql("SELECT id,message,occurred_at,read_at,version FROM account_notification WHERE account_id=:a AND id>:after ORDER BY id LIMIT 26")
-            .param("a",actor).param("after",cursor(actor,cursor)).query((rs,n)->new Notice(rs.getObject(1,UUID.class),rs.getString(2),rs.getTimestamp(3).toInstant(),rs.getTimestamp(4)==null?null:rs.getTimestamp(4).toInstant(),rs.getInt(5),etag("notice",rs.getObject(1,UUID.class),rs.getInt(5)))).list();
+        if(!Set.of("all","unread","read").contains(filter))throw new ApiProblem(422,"INVALID_FILTER","Choose all, unread or read notifications.","status");
+        Instant before=Instant.parse("9999-12-31T23:59:59Z");UUID last=new UUID(-1L,-1L);
+        if(cursor!=null)try{
+            if(cursor.length()>512)throw new IllegalArgumentException();
+            String[] parts=new String(Base64.getUrlDecoder().decode(cursor),java.nio.charset.StandardCharsets.UTF_8).split("/",-1);
+            if(parts.length!=5||!parts[0].equals("notices-v2")||!parts[1].equals(actor.toString())||!parts[2].equals(filter))throw new IllegalArgumentException();
+            before=Instant.parse(parts[3]);last=UUID.fromString(parts[4]);
+        }catch(RuntimeException invalid){throw new ApiProblem(422,"INVALID_CURSOR","Reload notifications for this account and filter.","cursor");}
+        String predicate="account_id=:a AND (:filter='all' OR (:filter='unread' AND read_at IS NULL) OR (:filter='read' AND read_at IS NOT NULL))";
+        var rows=db.sql("SELECT id,message,occurred_at,read_at,version,category FROM account_notification WHERE "+predicate+" AND (occurred_at,id)<(:before,:last) ORDER BY occurred_at DESC,id DESC LIMIT 26")
+            .param("a",actor).param("filter",filter).param("before",java.sql.Timestamp.from(before)).param("last",last)
+            .query((rs,n)->new Notice(rs.getObject(1,UUID.class),rs.getString(2),rs.getTimestamp(3).toInstant(),rs.getTimestamp(4)==null?null:rs.getTimestamp(4).toInstant(),rs.getInt(5),etag("notice",rs.getObject(1,UUID.class),rs.getInt(5)),rs.getString(6))).list();
         boolean more=rows.size()>25;var items=more?rows.subList(0,25):rows;
-        int total=db.sql("SELECT count(*) FROM account_notification WHERE account_id=:a").param("a",actor).query(Integer.class).single();
+        int total=db.sql("SELECT count(*) FROM account_notification WHERE "+predicate).param("a",actor).param("filter",filter).query(Integer.class).single();
         int unread=db.sql("SELECT count(*) FROM account_notification WHERE account_id=:a AND read_at IS NULL").param("a",actor).query(Integer.class).single();
-        return new Notices(items,new Page(25,more?next(actor,items.getLast().id()):null),total,unread,Instant.now());
+        String nextCursor=more?Base64.getUrlEncoder().withoutPadding().encodeToString(("notices-v2/"+actor+"/"+filter+"/"+items.getLast().occurredAt()+"/"+items.getLast().id()).getBytes(java.nio.charset.StandardCharsets.UTF_8)):null;
+        return new Notices(items,new Page(25,nextCursor),total,unread,Instant.now());
     }
     @Transactional
     public Notice readNotice(UUID actor, UUID id, UUID key, String expected) {
@@ -192,8 +205,8 @@ public class AccountControls {
                 .param("id",id).param("a",actor).update();
             audit.record(actor,null,operation,id);
         }
-        Notice result=db.sql("SELECT id,message,occurred_at,read_at,version FROM account_notification WHERE id=:id AND account_id=:a")
-            .param("id",id).param("a",actor).query((rs,n)->new Notice(id,rs.getString(2),rs.getTimestamp(3).toInstant(),rs.getTimestamp(4).toInstant(),rs.getInt(5),etag("notice",id,rs.getInt(5)))).single();
+        Notice result=db.sql("SELECT id,message,occurred_at,read_at,version,category FROM account_notification WHERE id=:id AND account_id=:a")
+            .param("id",id).param("a",actor).query((rs,n)->new Notice(id,rs.getString(2),rs.getTimestamp(3).toInstant(),rs.getTimestamp(4).toInstant(),rs.getInt(5),etag("notice",id,rs.getInt(5)),rs.getString(6))).single();
         db.sql("INSERT INTO identity_command(actor_id,operation,request_key,request_hash,result) VALUES(:a,:o,:k,:h,CAST(:r AS jsonb))")
             .param("a",actor).param("o",operation).param("k",key).param("h",hash).param("r",json.writeValueAsString(result)).update();
         return result;
